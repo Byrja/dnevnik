@@ -11,8 +11,15 @@ from telegram.ext import (
 )
 
 from db import init_db
-from handlers import consent_accept, new_thought_entry, receive_thought_text, start
-from state import WAIT_THOUGHT
+from handlers import (
+    consent_accept,
+    new_thought_entry,
+    receive_emotion,
+    receive_intensity_before,
+    receive_thought_text,
+    start,
+)
+from state import WAIT_EMOTION, WAIT_INTENSITY_BEFORE, WAIT_THOUGHT
 
 
 def build_app(token: str) -> Application:
@@ -27,6 +34,10 @@ def build_app(token: str) -> Application:
         ],
         states={
             WAIT_THOUGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_thought_text)],
+            WAIT_EMOTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_emotion)],
+            WAIT_INTENSITY_BEFORE: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_intensity_before)
+            ],
         },
         fallbacks=[],
         allow_reentry=True,

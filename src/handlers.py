@@ -2,8 +2,18 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMa
 from telegram.ext import ContextTypes, ConversationHandler
 
 from db import get_conn
-from state import WAIT_THOUGHT
-from texts import DISCLAIMER_RU, MENU_RU, START_RU, THOUGHT_PROMPT_RU, THOUGHT_SAVED_RU
+from state import WAIT_EMOTION, WAIT_INTENSITY_BEFORE, WAIT_THOUGHT
+from texts import (
+    DISCLAIMER_RU,
+    EMOTION_PROMPT_RU,
+    EMOTION_SAVED_RU,
+    EMOTION_STEP_DONE_RU,
+    INTENSITY_PROMPT_RU,
+    MENU_RU,
+    START_RU,
+    THOUGHT_PROMPT_RU,
+    THOUGHT_SAVED_RU,
+)
 
 
 def _user_exists(tg_user_id: int) -> bool:
@@ -96,5 +106,72 @@ async def receive_thought_text(update: Update, context: ContextTypes.DEFAULT_TYP
         "tg_user_id": update.effective_user.id,
         "thought_text": thought_text,
     }
+
+    emotion_keyboard = ReplyKeyboardMarkup(
+        [["Тревога", "Грусть", "Злость"], ["Стыд", "Вина", "Раздражение"], ["Страх", "Пустота", "Другое"]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
     await update.message.reply_text(THOUGHT_SAVED_RU)
+    await update.message.reply_text(EMOTION_PROMPT_RU, reply_markup=emotion_keyboard)
+    return WAIT_EMOTION
+
+
+async def receive_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not update.message:
+        return ConversationHandler.END
+    emotion = (update.message.text or "").strip()
+    if not emotion:
+        await update.message.reply_text("Выбери эмоцию кнопкой или введи текстом.")
+        return WAIT_EMOTION
+
+    draft = context.user_data.get("draft_entry", {})
+    draft["emotion_label"] = emotion
+    context.user_data["draft_entry"] = draft
+
+    await update.message.reply_text(EMOTION_SAVED_RU)
+    await update.message.reply_text(INTENSITY_PROMPT_RU)
+    return WAIT_INTENSITY_BEFORE
+
+
+async def receive_intensity_before(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not update.message or not update.effective_user:
+        return ConversationHandler.END
+
+    raw = (update.message.text or "").strip()
+    if not raw.isdigit():
+        await update.message.reply_text("Нужно число от 0 до 100.")
+        return WAIT_INTENSITY_BEFORE
+
+    value = int(raw)
+    if value < 0 or value > 100:
+        await update.message.reply_text("Только диапазон 0–100.")
+        return WAIT_INTENSITY_BEFORE
+
+    draft = context.user_data.get("draft_entry")
+    if not draft or not draft.get("thought_text"):
+        await update.message.reply_text("Черновик не найден. Нажми «Новая мысль» и начни заново.")
+        return ConversationHandler.END
+
+    draft["intensity_before"] = value
+    context.user_data["draft_entry"] = draft
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO entries (tg_user_id, thought_text, emotion_label, intensity_before)
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            update.effective_user.id,
+            draft.get("thought_text"),
+            draft.get("emotion_label"),
+            draft.get("intensity_before"),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    await update.message.reply_text(EMOTION_STEP_DONE_RU)
     return ConversationHandler.END
