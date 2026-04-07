@@ -121,8 +121,8 @@ async def _handle_crisis(update: Update, context: ContextTypes.DEFAULT_TYPE, sou
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO entries (tg_user_id, thought_text, emotion_label)
-            VALUES (?, ?, ?)
+            INSERT INTO entries (tg_user_id, thought_text, emotion_label, is_completed, completed_at)
+            VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)
             """,
             (update.effective_user.id, source_text[:500], "CRISIS_SIGNAL"),
         )
@@ -264,7 +264,8 @@ async def send_daily_nudges(context: ContextTypes.DEFAULT_TYPE) -> None:
           AND NOT EXISTS (
               SELECT 1 FROM entries e
               WHERE e.tg_user_id = s.tg_user_id
-                AND datetime(e.created_at) >= datetime('now', '-24 hours')
+                AND e.is_completed = 1
+                AND datetime(COALESCE(e.completed_at, e.created_at)) >= datetime('now', '-24 hours')
           )
         """
     )
@@ -295,6 +296,7 @@ async def export_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                evidence_for, evidence_against, alternative_thought, intensity_after
         FROM entries
         WHERE tg_user_id = ?
+          AND is_completed = 1
         ORDER BY id DESC
         LIMIT 200
         """,
@@ -434,8 +436,8 @@ async def receive_intensity_before(update: Update, context: ContextTypes.DEFAULT
     cur = conn.cursor()
     cur.execute(
         """
-        INSERT INTO entries (tg_user_id, thought_text, emotion_label, intensity_before)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO entries (tg_user_id, thought_text, emotion_label, intensity_before, is_completed)
+        VALUES (?, ?, ?, ?, 0)
         """,
         (
             update.effective_user.id,
@@ -605,7 +607,10 @@ async def _finalize_with_after_intensity(update: Update, context: ContextTypes.D
 
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("UPDATE entries SET intensity_after = ? WHERE id = ?", (after, entry_id))
+    cur.execute(
+        "UPDATE entries SET intensity_after = ?, is_completed = 1, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (after, entry_id),
+    )
     conn.commit()
     conn.close()
 
@@ -743,7 +748,8 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         SELECT created_at, thought_text, emotion_label, intensity_before, intensity_after, distortion
         FROM entries
         WHERE tg_user_id = ?
-          AND datetime(created_at) >= datetime('now', ?)
+          AND is_completed = 1
+          AND datetime(COALESCE(completed_at, created_at)) >= datetime('now', ?)
         """
     )
     params = [update.effective_user.id, f"-{days} days"]

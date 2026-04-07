@@ -46,6 +46,8 @@ def init_db():
         evidence_against TEXT,
         alternative_thought TEXT,
         intensity_after INTEGER,
+        is_completed INTEGER NOT NULL DEFAULT 0,
+        completed_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     ''')
@@ -55,6 +57,13 @@ def init_db():
     cols = {r[1] for r in cur.fetchall()}
     if 'reminders_enabled' not in cols:
         cur.execute("ALTER TABLE settings ADD COLUMN reminders_enabled INTEGER NOT NULL DEFAULT 1")
+
+    cur.execute("PRAGMA table_info(entries)")
+    entry_cols = {r[1] for r in cur.fetchall()}
+    if 'is_completed' not in entry_cols:
+        cur.execute("ALTER TABLE entries ADD COLUMN is_completed INTEGER NOT NULL DEFAULT 0")
+    if 'completed_at' not in entry_cols:
+        cur.execute("ALTER TABLE entries ADD COLUMN completed_at DATETIME")
 
     conn.commit()
     conn.close()
