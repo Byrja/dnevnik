@@ -16,11 +16,20 @@ from handlers import (
     new_thought_entry,
     receive_distortion,
     receive_emotion,
+    receive_evidence_against,
+    receive_evidence_for,
     receive_intensity_before,
     receive_thought_text,
     start,
 )
-from state import WAIT_DISTORTION, WAIT_EMOTION, WAIT_INTENSITY_BEFORE, WAIT_THOUGHT
+from state import (
+    WAIT_DISTORTION,
+    WAIT_EMOTION,
+    WAIT_EVIDENCE_AGAINST,
+    WAIT_EVIDENCE_FOR,
+    WAIT_INTENSITY_BEFORE,
+    WAIT_THOUGHT,
+)
 
 
 def build_app(token: str) -> Application:
@@ -40,6 +49,10 @@ def build_app(token: str) -> Application:
                 MessageHandler(filters.TEXT & ~filters.COMMAND, receive_intensity_before)
             ],
             WAIT_DISTORTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_distortion)],
+            WAIT_EVIDENCE_FOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_evidence_for)],
+            WAIT_EVIDENCE_AGAINST: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_evidence_against)
+            ],
         },
         fallbacks=[],
         allow_reentry=True,

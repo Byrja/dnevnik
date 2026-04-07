@@ -2,7 +2,14 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMa
 from telegram.ext import ContextTypes, ConversationHandler
 
 from db import get_conn
-from state import WAIT_DISTORTION, WAIT_EMOTION, WAIT_INTENSITY_BEFORE, WAIT_THOUGHT
+from state import (
+    WAIT_DISTORTION,
+    WAIT_EMOTION,
+    WAIT_EVIDENCE_AGAINST,
+    WAIT_EVIDENCE_FOR,
+    WAIT_INTENSITY_BEFORE,
+    WAIT_THOUGHT,
+)
 from texts import (
     DISCLAIMER_RU,
     DISTORTION_PROMPT_RU,
@@ -10,6 +17,9 @@ from texts import (
     EMOTION_PROMPT_RU,
     EMOTION_SAVED_RU,
     EMOTION_STEP_DONE_RU,
+    EVIDENCE_AGAINST_PROMPT_RU,
+    EVIDENCE_FOR_PROMPT_RU,
+    EVIDENCE_STEP_DONE_RU,
     INTENSITY_PROMPT_RU,
     MENU_RU,
     START_RU,
@@ -222,4 +232,61 @@ async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data["draft_entry"] = draft
 
     await update.message.reply_text(DISTORTION_SAVED_RU)
+    await update.message.reply_text(EVIDENCE_FOR_PROMPT_RU)
+    return WAIT_EVIDENCE_FOR
+
+
+async def receive_evidence_for(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not update.message:
+        return ConversationHandler.END
+
+    evidence_for = (update.message.text or "").strip()
+    if len(evidence_for) < 3:
+        await update.message.reply_text("Слишком коротко. Напиши хотя бы 3 символа.")
+        return WAIT_EVIDENCE_FOR
+
+    draft = context.user_data.get("draft_entry", {})
+    entry_id = draft.get("entry_id")
+    if not entry_id:
+        await update.message.reply_text("Не нашла активную запись. Нажми «Новая мысль» и начни заново.")
+        return ConversationHandler.END
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE entries SET evidence_for = ? WHERE id = ?", (evidence_for, entry_id))
+    conn.commit()
+    conn.close()
+
+    draft["evidence_for"] = evidence_for
+    context.user_data["draft_entry"] = draft
+
+    await update.message.reply_text(EVIDENCE_AGAINST_PROMPT_RU)
+    return WAIT_EVIDENCE_AGAINST
+
+
+async def receive_evidence_against(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not update.message:
+        return ConversationHandler.END
+
+    evidence_against = (update.message.text or "").strip()
+    if len(evidence_against) < 3:
+        await update.message.reply_text("Слишком коротко. Напиши хотя бы 3 символа.")
+        return WAIT_EVIDENCE_AGAINST
+
+    draft = context.user_data.get("draft_entry", {})
+    entry_id = draft.get("entry_id")
+    if not entry_id:
+        await update.message.reply_text("Не нашла активную запись. Нажми «Новая мысль» и начни заново.")
+        return ConversationHandler.END
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE entries SET evidence_against = ? WHERE id = ?", (evidence_against, entry_id))
+    conn.commit()
+    conn.close()
+
+    draft["evidence_against"] = evidence_against
+    context.user_data["draft_entry"] = draft
+
+    await update.message.reply_text(EVIDENCE_STEP_DONE_RU)
     return ConversationHandler.END
