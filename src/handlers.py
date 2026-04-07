@@ -13,6 +13,7 @@ from state import (
     WAIT_THOUGHT,
 )
 from texts import (
+    ALTERNATIVE_HINT_PROMPT_RU,
     ALTERNATIVE_PROMPT_RU,
     CARD_DONE_TEMPLATE_RU,
     CRISIS_SUPPORT_RU,
@@ -373,6 +374,25 @@ async def receive_evidence_for(update: Update, context: ContextTypes.DEFAULT_TYP
     return WAIT_EVIDENCE_AGAINST
 
 
+def _alternative_hint_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Что бы я сказал другу?", callback_data="alt_hint:friend")],
+            [InlineKeyboardButton("Факты против страха", callback_data="alt_hint:facts")],
+            [InlineKeyboardButton("Мягкая реалистичная версия", callback_data="alt_hint:balanced")],
+        ]
+    )
+
+
+def _alternative_hint_text(kind: str, thought: str) -> str:
+    thought = (thought or "эту мысль").strip()
+    if kind == "friend":
+        return f"Если бы друг сказал: «{thought}», я бы ответил: «Ты не обязан верить первой тревожной мысли. Давай опираться на факты и на то, что реально в твоём контроле прямо сейчас»."
+    if kind == "facts":
+        return "Проверь: какие 2–3 факта прямо сейчас не подтверждают худший сценарий? Собери их и сформулируй более точную мысль."
+    return "Более реалистичная формулировка: «Да, сейчас мне непросто. Но это временно, и у меня есть шаги, которые помогут стабилизироваться»."
+
+
 async def receive_evidence_against(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not update.message:
         return ConversationHandler.END
@@ -401,7 +421,32 @@ async def receive_evidence_against(update: Update, context: ContextTypes.DEFAULT
 
     await update.message.reply_text(EVIDENCE_STEP_DONE_RU)
     await update.message.reply_text(ALTERNATIVE_PROMPT_RU)
+    await update.message.reply_text(ALTERNATIVE_HINT_PROMPT_RU, reply_markup=_alternative_hint_keyboard())
     return WAIT_ALTERNATIVE_THOUGHT
+
+
+async def _finalize_with_after_intensity(update: Update, context: ContextTypes.DEFAULT_TYPE, after: int) -> int:
+    draft = context.user_data.get("draft_entry", {})
+    entry_id = draft.get("entry_id")
+    if not entry_id:
+        return ConversationHandler.END
+
+    before = int(draft.get("intensity_before", 0))
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE entries SET intensity_after = ? WHERE id = ?", (after, entry_id))
+    conn.commit()
+    conn.close()
+
+    delta = before - after
+    if update.message:
+        await update.message.reply_text(
+            CARD_DONE_TEMPLATE_RU.format(before=before, after=after, delta=delta)
+        )
+
+    context.user_data.pop("draft_entry", None)
+    return ConversationHandler.END
 
 
 async def receive_alternative_thought(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -411,11 +456,18 @@ async def receive_alternative_thought(update: Update, context: ContextTypes.DEFA
     alt = (update.message.text or "").strip()
     if _contains_crisis_signal(alt):
         return await _handle_crisis(update, context, alt)
+
+    draft = context.user_data.get("draft_entry", {})
+    # Если подсказка уже вставила альтернативную мысль, пользователь может сразу ввести число 0-100
+    if alt.isdigit() and draft.get("alternative_thought"):
+        value = int(alt)
+        if 0 <= value <= 100:
+            return await _finalize_with_after_intensity(update, context, value)
+
     if len(alt) < 3:
         await update.message.reply_text("Слишком коротко. Напиши хотя бы 3 символа.")
         return WAIT_ALTERNATIVE_THOUGHT
 
-    draft = context.user_data.get("draft_entry", {})
     entry_id = draft.get("entry_id")
     if not entry_id:
         await update.message.reply_text("Не нашла активную запись. Нажми «Новая мысль» и начни заново.")
@@ -432,6 +484,35 @@ async def receive_alternative_thought(update: Update, context: ContextTypes.DEFA
 
     await update.message.reply_text(INTENSITY_AFTER_PROMPT_RU)
     return WAIT_INTENSITY_AFTER
+
+
+async def apply_alternative_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+
+    draft = context.user_data.get("draft_entry", {})
+    thought = draft.get("thought_text", "")
+    kind = (query.data or "alt_hint:balanced").split(":", 1)[1]
+    hint_text = _alternative_hint_text(kind, thought)
+
+    entry_id = draft.get("entry_id")
+    if not entry_id:
+        await query.message.reply_text("Не нашла активную запись. Нажми «Новая мысль» и начни заново.")
+        return
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE entries SET alternative_thought = ? WHERE id = ?", (hint_text, entry_id))
+    conn.commit()
+    conn.close()
+
+    draft["alternative_thought"] = hint_text
+    context.user_data["draft_entry"] = draft
+
+    await query.message.reply_text(f"Подсказка:\n{hint_text}")
+    await query.message.reply_text(INTENSITY_AFTER_PROMPT_RU)
 
 
 async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -454,21 +535,7 @@ async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text("Не нашла активную запись. Нажми «Новая мысль» и начни заново.")
         return ConversationHandler.END
 
-    before = int(draft.get("intensity_before", 0))
-
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("UPDATE entries SET intensity_after = ? WHERE id = ?", (after, entry_id))
-    conn.commit()
-    conn.close()
-
-    delta = before - after
-    await update.message.reply_text(
-        CARD_DONE_TEMPLATE_RU.format(before=before, after=after, delta=delta)
-    )
-
-    context.user_data.pop("draft_entry", None)
-    return ConversationHandler.END
+    return await _finalize_with_after_intensity(update, context, after)
 
 
 async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

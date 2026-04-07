@@ -12,6 +12,7 @@ from telegram.ext import (
 
 from db import init_db
 from handlers import (
+    apply_alternative_hint,
     consent_accept,
     new_thought_entry,
     receive_alternative_thought,
@@ -44,6 +45,7 @@ def build_app(token: str) -> Application:
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(consent_accept, pattern="^consent_accept$"))
     app.add_handler(CallbackQueryHandler(set_tone, pattern=r"^tone:(warm|neutral)$"))
+    app.add_handler(CallbackQueryHandler(apply_alternative_hint, pattern=r"^alt_hint:(friend|facts|balanced)$"))
     app.add_handler(CommandHandler("history", show_history))
     app.add_handler(MessageHandler(filters.Regex(r"^История$"), show_history))
     app.add_handler(CommandHandler("settings", show_settings))
