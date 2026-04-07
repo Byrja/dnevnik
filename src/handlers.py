@@ -555,30 +555,71 @@ async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_
     return await _finalize_with_after_intensity(update, context, after)
 
 
+def _parse_history_filters(text: str) -> tuple[str | None, str | None, int]:
+    # Примеры:
+    # /history
+    # /history emotion=Тревога
+    # /history distortion=Катастрофизация days=7
+    # /history emotion=Тревога distortion=Чтение_мыслей days=30
+    emotion = None
+    distortion = None
+    days = 30
+    for part in (text or "").split()[1:]:
+        if "=" not in part:
+            continue
+        k, v = part.split("=", 1)
+        v = v.replace("_", " ").strip()
+        if k == "emotion" and v:
+            emotion = v
+        elif k == "distortion" and v:
+            distortion = v
+        elif k == "days" and v.isdigit():
+            days = max(1, min(365, int(v)))
+    return emotion, distortion, days
+
+
 async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or not update.effective_user:
         return
 
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute(
+    emotion, distortion, days = _parse_history_filters(update.message.text or "")
+
+    query = (
         """
-        SELECT created_at, thought_text, emotion_label, intensity_before, intensity_after
+        SELECT created_at, thought_text, emotion_label, intensity_before, intensity_after, distortion
         FROM entries
         WHERE tg_user_id = ?
-        ORDER BY id DESC
-        LIMIT 10
-        """,
-        (update.effective_user.id,),
+          AND datetime(created_at) >= datetime('now', ?)
+        """
     )
+    params = [update.effective_user.id, f"-{days} days"]
+
+    if emotion:
+        query += " AND emotion_label = ?"
+        params.append(emotion)
+    if distortion:
+        query += " AND distortion = ?"
+        params.append(distortion)
+
+    query += " ORDER BY id DESC LIMIT 10"
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(query, tuple(params))
     rows = cur.fetchall()
     conn.close()
 
     if not rows:
-        await update.message.reply_text("Пока нет завершённых карточек. Нажми «Новая мысль» и сделай первый разбор.")
+        await update.message.reply_text("По этому фильтру записей нет. Попробуй /history или увеличь days=.")
         return
 
-    lines = ["🗂 Последние 10 карточек:"]
+    filter_line = f"Фильтр: days={days}"
+    if emotion:
+        filter_line += f", emotion={emotion}"
+    if distortion:
+        filter_line += f", distortion={distortion}"
+
+    lines = ["🗂 Последние 10 карточек:", filter_line]
     for i, r in enumerate(rows, 1):
         thought = (r[1] or "").replace("\n", " ").strip()
         if len(thought) > 48:
@@ -586,9 +627,11 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         emo = r[2] or "—"
         before = r[3] if r[3] is not None else "—"
         after = r[4] if r[4] is not None else "—"
+        dist = r[5] or "—"
         delta = "—"
         if isinstance(before, int) and isinstance(after, int):
             delta = before - after
-        lines.append(f"{i}) {emo} | {before}→{after} | Δ {delta} | {thought}")
+        lines.append(f"{i}) {emo} | {before}→{after} | Δ {delta} | {dist} | {thought}")
 
+    lines.append("\nПримеры: /history emotion=Тревога | /history distortion=Катастрофизация days=7")
     await update.message.reply_text("\n".join(lines))
