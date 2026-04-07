@@ -14,12 +14,13 @@ from db import init_db
 from handlers import (
     consent_accept,
     new_thought_entry,
+    receive_distortion,
     receive_emotion,
     receive_intensity_before,
     receive_thought_text,
     start,
 )
-from state import WAIT_EMOTION, WAIT_INTENSITY_BEFORE, WAIT_THOUGHT
+from state import WAIT_DISTORTION, WAIT_EMOTION, WAIT_INTENSITY_BEFORE, WAIT_THOUGHT
 
 
 def build_app(token: str) -> Application:
@@ -38,6 +39,7 @@ def build_app(token: str) -> Application:
             WAIT_INTENSITY_BEFORE: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, receive_intensity_before)
             ],
+            WAIT_DISTORTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_distortion)],
         },
         fallbacks=[],
         allow_reentry=True,

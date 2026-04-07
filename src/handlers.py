@@ -2,9 +2,11 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMa
 from telegram.ext import ContextTypes, ConversationHandler
 
 from db import get_conn
-from state import WAIT_EMOTION, WAIT_INTENSITY_BEFORE, WAIT_THOUGHT
+from state import WAIT_DISTORTION, WAIT_EMOTION, WAIT_INTENSITY_BEFORE, WAIT_THOUGHT
 from texts import (
     DISCLAIMER_RU,
+    DISTORTION_PROMPT_RU,
+    DISTORTION_SAVED_RU,
     EMOTION_PROMPT_RU,
     EMOTION_SAVED_RU,
     EMOTION_STEP_DONE_RU,
@@ -170,8 +172,54 @@ async def receive_intensity_before(update: Update, context: ContextTypes.DEFAULT
             draft.get("intensity_before"),
         ),
     )
+    entry_id = cur.lastrowid
     conn.commit()
     conn.close()
 
+    draft["entry_id"] = entry_id
+    context.user_data["draft_entry"] = draft
+
+    distortion_keyboard = ReplyKeyboardMarkup(
+        [
+            ["Катастрофизация", "Чтение мыслей"],
+            ["Черно-белое мышление", "Обесценивание позитивного"],
+            ["Сверхобобщение", "Персонализация"],
+            ["Эмоц. обоснование", "Долженствование"],
+            ["Навешивание ярлыков", "Предсказание будущего"],
+            ["Другое"],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
     await update.message.reply_text(EMOTION_STEP_DONE_RU)
+    await update.message.reply_text(DISTORTION_PROMPT_RU, reply_markup=distortion_keyboard)
+    return WAIT_DISTORTION
+
+
+async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not update.message:
+        return ConversationHandler.END
+
+    distortion = (update.message.text or "").strip()
+    if not distortion:
+        await update.message.reply_text("Выбери искажение кнопкой или введи текстом.")
+        return WAIT_DISTORTION
+
+    draft = context.user_data.get("draft_entry", {})
+    entry_id = draft.get("entry_id")
+    if not entry_id:
+        await update.message.reply_text("Не нашла активную запись. Нажми «Новая мысль» и начни заново.")
+        return ConversationHandler.END
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE entries SET distortion = ? WHERE id = ?", (distortion, entry_id))
+    conn.commit()
+    conn.close()
+
+    draft["distortion"] = distortion
+    context.user_data["draft_entry"] = draft
+
+    await update.message.reply_text(DISTORTION_SAVED_RU)
     return ConversationHandler.END
