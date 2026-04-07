@@ -30,7 +30,7 @@ EVIDENCE_STEP_DONE_RU = "✅ Доказательства сохранены. Т
 ALTERNATIVE_PROMPT_RU = "Какая более реалистичная и поддерживающая мысль может быть вместо исходной?"
 ALTERNATIVE_HINT_PROMPT_RU = "Если сложно сформулировать — выбери шаблон-подсказку:"
 INTENSITY_AFTER_PROMPT_RU = "Теперь оцени интенсивность эмоции ПОСЛЕ разбора (0–100)."
-CARD_DONE_TEMPLATE_RU = "✅ Карточка завершена.\nДо: {before}/100\nПосле: {after}/100\nΔ: {delta}"
+CARD_DONE_TEMPLATE_RU = "✅ Карточка завершена.\nДо: {before}/100\nПосле: {after}/100\nΔ: {delta}\n\nСледующий шаг: {next_step}"
 HISTORY_EMPTY_RU = "Пока нет завершённых карточек. Нажми «Новая мысль» и сделай первый разбор."
 
 CRISIS_SUPPORT_RU = (

@@ -425,6 +425,21 @@ async def receive_evidence_against(update: Update, context: ContextTypes.DEFAULT
     return WAIT_ALTERNATIVE_THOUGHT
 
 
+def _next_step_recommendation(delta: int, after: int, distortion: str) -> str:
+    d = (distortion or "").lower()
+    if after >= 75:
+        return "Сделай паузу 10 минут: вода + дыхание 4-6 + короткая прогулка. Потом повтори карточку ещё раз."
+    if "катастроф" in d or "предсказ" in d:
+        return "Проверь прогноз: выпиши 3 факта, которые НЕ подтверждают худший сценарий."
+    if "должен" in d:
+        return "Замени «я должен» на «я выбираю/могу» и сформулируй более мягкий стандарт к себе."
+    if delta >= 25:
+        return "Отличная динамика. Зафиксируй формулировку альтернативной мысли и вернись к ней вечером."
+    if delta >= 10:
+        return "Хороший сдвиг. Повтори цикл позже сегодня, если накал снова вырастет."
+    return "Сдвиг пока небольшой — это нормально. Попробуй конкретизировать факты «за/против» и сделать второй проход."
+
+
 async def _finalize_with_after_intensity(update: Update, context: ContextTypes.DEFAULT_TYPE, after: int) -> int:
     draft = context.user_data.get("draft_entry", {})
     entry_id = draft.get("entry_id")
@@ -432,6 +447,7 @@ async def _finalize_with_after_intensity(update: Update, context: ContextTypes.D
         return ConversationHandler.END
 
     before = int(draft.get("intensity_before", 0))
+    distortion = draft.get("distortion", "")
 
     conn = get_conn()
     cur = conn.cursor()
@@ -440,9 +456,10 @@ async def _finalize_with_after_intensity(update: Update, context: ContextTypes.D
     conn.close()
 
     delta = before - after
+    next_step = _next_step_recommendation(delta=delta, after=after, distortion=distortion)
     if update.message:
         await update.message.reply_text(
-            CARD_DONE_TEMPLATE_RU.format(before=before, after=after, delta=delta)
+            CARD_DONE_TEMPLATE_RU.format(before=before, after=after, delta=delta, next_step=next_step)
         )
 
     context.user_data.pop("draft_entry", None)
