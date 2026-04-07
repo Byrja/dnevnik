@@ -29,6 +29,8 @@ from texts import (
     INTENSITY_AFTER_PROMPT_RU,
     INTENSITY_PROMPT_RU,
     MENU_RU,
+    REMINDER_NUDGE_RU,
+    REMINDER_STATE_TEMPLATE_RU,
     SETTINGS_PROMPT_RU,
     SETTINGS_SAVED_TEMPLATE_RU,
     START_RU,
@@ -198,6 +200,56 @@ async def set_tone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     label = "тёплый" if tone == "warm" else "нейтральный"
     await query.edit_message_text(SETTINGS_SAVED_TEMPLATE_RU.format(tone_label=label))
+
+
+async def set_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message or not update.effective_user:
+        return
+
+    args = context.args or []
+    conn = get_conn()
+    cur = conn.cursor()
+
+    if args and args[0].lower() in {"on", "off"}:
+        enabled = 1 if args[0].lower() == "on" else 0
+        cur.execute(
+            "UPDATE settings SET reminders_enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE tg_user_id = ?",
+            (enabled, update.effective_user.id),
+        )
+        conn.commit()
+
+    cur.execute("SELECT reminders_enabled FROM settings WHERE tg_user_id = ?", (update.effective_user.id,))
+    row = cur.fetchone()
+    conn.close()
+
+    state = "ON" if (row and int(row[0]) == 1) else "OFF"
+    await update.message.reply_text(REMINDER_STATE_TEMPLATE_RU.format(state=state))
+
+
+async def send_daily_nudges(context: ContextTypes.DEFAULT_TYPE) -> None:
+    app = context.application
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT s.tg_user_id
+        FROM settings s
+        WHERE COALESCE(s.reminders_enabled, 1) = 1
+          AND NOT EXISTS (
+              SELECT 1 FROM entries e
+              WHERE e.tg_user_id = s.tg_user_id
+                AND datetime(e.created_at) >= datetime('now', '-24 hours')
+          )
+        """
+    )
+    users = [r[0] for r in cur.fetchall()]
+    conn.close()
+
+    for tg_user_id in users:
+        try:
+            await app.bot.send_message(chat_id=tg_user_id, text=REMINDER_NUDGE_RU)
+        except Exception:
+            continue
 
 
 async def new_thought_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

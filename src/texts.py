@@ -11,6 +11,8 @@ MENU_RU = "Главное меню:\n• Новая мысль\n• Истори
 
 SETTINGS_PROMPT_RU = "⚙️ Настройки: выбери тон ответов"
 SETTINGS_SAVED_TEMPLATE_RU = "✅ Тон обновлён: {tone_label}"
+REMINDER_NUDGE_RU = "💬 Небольшой check-in: хочешь быстрый CBT-разбор мысли за 3 минуты? Нажми «Новая мысль»"
+REMINDER_STATE_TEMPLATE_RU = "Напоминания: {state}. Используй /reminders on|off"
 
 THOUGHT_PROMPT_RU = (
     "✍️ Напиши мысль, которая сейчас тревожит или давит.\n"

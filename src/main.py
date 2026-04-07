@@ -23,6 +23,8 @@ from handlers import (
     receive_intensity_after,
     receive_intensity_before,
     receive_thought_text,
+    send_daily_nudges,
+    set_reminders,
     set_tone,
     show_history,
     show_settings,
@@ -49,6 +51,7 @@ def build_app(token: str) -> Application:
     app.add_handler(CommandHandler("history", show_history))
     app.add_handler(MessageHandler(filters.Regex(r"^История$"), show_history))
     app.add_handler(CommandHandler("settings", show_settings))
+    app.add_handler(CommandHandler("reminders", set_reminders))
     app.add_handler(MessageHandler(filters.Regex(r"^Настройки$"), show_settings))
 
     thought_flow = ConversationHandler(
@@ -78,6 +81,10 @@ def build_app(token: str) -> Application:
         allow_reentry=True,
     )
     app.add_handler(thought_flow)
+
+    if app.job_queue:
+        app.job_queue.run_repeating(send_daily_nudges, interval=3600, first=90, name="daily_nudges")
+
     return app
 
 

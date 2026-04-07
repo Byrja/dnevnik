@@ -50,5 +50,11 @@ def init_db():
     )
     ''')
 
+    # Lightweight migrations
+    cur.execute("PRAGMA table_info(settings)")
+    cols = {r[1] for r in cur.fetchall()}
+    if 'reminders_enabled' not in cols:
+        cur.execute("ALTER TABLE settings ADD COLUMN reminders_enabled INTEGER NOT NULL DEFAULT 1")
+
     conn.commit()
     conn.close()
