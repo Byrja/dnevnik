@@ -28,6 +28,7 @@ from handlers import (
     set_reminders,
     set_tone,
     show_history,
+    show_onboarding,
     show_settings,
     start,
 )
@@ -53,6 +54,7 @@ def build_app(token: str) -> Application:
     app.add_handler(CommandHandler("export", export_progress))
     app.add_handler(MessageHandler(filters.Regex(r"^История$"), show_history))
     app.add_handler(CommandHandler("settings", show_settings))
+    app.add_handler(CommandHandler("onboarding", show_onboarding))
     app.add_handler(CommandHandler("reminders", set_reminders))
     app.add_handler(MessageHandler(filters.Regex(r"^Настройки$"), show_settings))
 

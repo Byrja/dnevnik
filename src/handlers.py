@@ -30,6 +30,9 @@ from texts import (
     INTENSITY_PROMPT_RU,
     EXPORT_USAGE_RU,
     MENU_RU,
+    ONBOARDING_1_RU,
+    ONBOARDING_2_RU,
+    ONBOARDING_3_RU,
     REMINDER_NUDGE_RU,
     REMINDER_STATE_TEMPLATE_RU,
     SETTINGS_PROMPT_RU,
@@ -151,6 +154,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(DISCLAIMER_RU, reply_markup=keyboard)
 
 
+async def _send_onboarding(chat_message) -> None:
+    await chat_message.reply_text(ONBOARDING_1_RU)
+    await chat_message.reply_text(ONBOARDING_2_RU)
+    await chat_message.reply_text(ONBOARDING_3_RU)
+
+
 async def consent_accept(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if not query:
@@ -165,7 +174,14 @@ async def consent_accept(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
     await query.edit_message_text("✅ Согласие сохранено.")
     await query.message.reply_text(START_RU)
+    await _send_onboarding(query.message)
     await query.message.reply_text(MENU_RU, reply_markup=keyboard)
+
+
+async def show_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message:
+        return
+    await _send_onboarding(update.message)
 
 
 async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

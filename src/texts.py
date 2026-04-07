@@ -15,6 +15,10 @@ REMINDER_NUDGE_RU = "💬 Небольшой check-in: хочешь быстры
 REMINDER_STATE_TEMPLATE_RU = "Напоминания: {state}. Используй /reminders on|off"
 EXPORT_USAGE_RU = "Используй: /export txt или /export json"
 
+ONBOARDING_1_RU = "🚀 Как это работает (1/3)\nClarity — это короткий CBT-цикл на 3–7 минут, чтобы снизить эмоциональный накал."
+ONBOARDING_2_RU = "🧩 (2/3)\nТы проходишь шаги: мысль → эмоция → искажение → факты за/против → альтернативная мысль."
+ONBOARDING_3_RU = "✅ (3/3)\nВ конце видишь До/После/Δ и следующий шаг.\nКоманды: /new, /history, /settings, /reminders, /export txt|json"
+
 THOUGHT_PROMPT_RU = (
     "✍️ Напиши мысль, которая сейчас тревожит или давит.\n"
     "Одним-двумя предложениями — как есть."
