@@ -28,6 +28,7 @@ from texts import (
     EVIDENCE_STEP_DONE_RU,
     INTENSITY_AFTER_PROMPT_RU,
     INTENSITY_PROMPT_RU,
+    EXPORT_USAGE_RU,
     MENU_RU,
     REMINDER_NUDGE_RU,
     REMINDER_STATE_TEMPLATE_RU,
@@ -250,6 +251,82 @@ async def send_daily_nudges(context: ContextTypes.DEFAULT_TYPE) -> None:
             await app.bot.send_message(chat_id=tg_user_id, text=REMINDER_NUDGE_RU)
         except Exception:
             continue
+
+
+async def export_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message or not update.effective_user:
+        return
+
+    fmt = (context.args[0].lower() if context.args else "").strip()
+    if fmt not in {"txt", "json"}:
+        await update.message.reply_text(EXPORT_USAGE_RU)
+        return
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT created_at, thought_text, emotion_label, intensity_before, distortion,
+               evidence_for, evidence_against, alternative_thought, intensity_after
+        FROM entries
+        WHERE tg_user_id = ?
+        ORDER BY id DESC
+        LIMIT 200
+        """,
+        (update.effective_user.id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        await update.message.reply_text("Нет данных для экспорта.")
+        return
+
+    from io import BytesIO
+    import json
+
+    if fmt == "json":
+        payload = []
+        for r in rows:
+            payload.append(
+                {
+                    "created_at": r[0],
+                    "thought_text": r[1],
+                    "emotion_label": r[2],
+                    "intensity_before": r[3],
+                    "distortion": r[4],
+                    "evidence_for": r[5],
+                    "evidence_against": r[6],
+                    "alternative_thought": r[7],
+                    "intensity_after": r[8],
+                }
+            )
+        data = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+        bio = BytesIO(data)
+        bio.name = "clarity_export.json"
+        await update.message.reply_document(document=bio, filename="clarity_export.json")
+        return
+
+    lines = ["Clarity export (txt)"]
+    for i, r in enumerate(rows, 1):
+        delta = "—"
+        if isinstance(r[3], int) and isinstance(r[8], int):
+            delta = r[3] - r[8]
+        lines.append(
+            f"\n[{i}] {r[0]}\n"
+            f"Мысль: {r[1] or '—'}\n"
+            f"Эмоция: {r[2] or '—'}\n"
+            f"До/После: {r[3] if r[3] is not None else '—'}/{r[8] if r[8] is not None else '—'} (Δ {delta})\n"
+            f"Искажение: {r[4] or '—'}\n"
+            f"За: {r[5] or '—'}\n"
+            f"Против: {r[6] or '—'}\n"
+            f"Альтернатива: {r[7] or '—'}"
+        )
+
+    data = "\n".join(lines).encode("utf-8")
+    bio = BytesIO(data)
+    bio.name = "clarity_export.txt"
+    await update.message.reply_document(document=bio, filename="clarity_export.txt")
 
 
 async def new_thought_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
