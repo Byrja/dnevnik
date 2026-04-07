@@ -42,6 +42,7 @@ def init_db():
         emotion_label TEXT,
         intensity_before INTEGER,
         distortion TEXT,
+        distortion_code TEXT,
         evidence_for TEXT,
         evidence_against TEXT,
         alternative_thought TEXT,
@@ -64,6 +65,8 @@ def init_db():
         cur.execute("ALTER TABLE entries ADD COLUMN is_completed INTEGER NOT NULL DEFAULT 0")
     if 'completed_at' not in entry_cols:
         cur.execute("ALTER TABLE entries ADD COLUMN completed_at DATETIME")
+    if 'distortion_code' not in entry_cols:
+        cur.execute("ALTER TABLE entries ADD COLUMN distortion_code TEXT")
 
     conn.commit()
     conn.close()

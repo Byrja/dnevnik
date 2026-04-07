@@ -100,6 +100,23 @@ def _tone_text(tone: str, key: str) -> str:
     return tone_map.get(key, {}).get(tone, tone_map.get(key, {}).get("warm", ""))
 
 
+DISTORTION_LABEL_TO_CODE = {
+    "Катастрофизация": "catastrophizing",
+    "Чтение мыслей": "mind_reading",
+    "Черно-белое мышление": "black_white",
+    "Обесценивание позитивного": "discounting_positive",
+    "Сверхобобщение": "overgeneralization",
+    "Персонализация": "personalization",
+    "Эмоц. обоснование": "emotional_reasoning",
+    "Долженствование": "should_statements",
+    "Навешивание ярлыков": "labeling",
+    "Предсказание будущего": "fortune_telling",
+    "Другое": "other",
+}
+
+CODE_TO_DISTORTION_LABEL = {v: k for k, v in DISTORTION_LABEL_TO_CODE.items()}
+
+
 def _contains_crisis_signal(text: str) -> bool:
     s = (text or "").lower()
     markers = [
@@ -292,7 +309,7 @@ async def export_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT created_at, thought_text, emotion_label, intensity_before, distortion,
+        SELECT created_at, thought_text, emotion_label, intensity_before, distortion, distortion_code,
                evidence_for, evidence_against, alternative_thought, intensity_after
         FROM entries
         WHERE tg_user_id = ?
@@ -322,10 +339,11 @@ async def export_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     "emotion_label": r[2],
                     "intensity_before": r[3],
                     "distortion": r[4],
-                    "evidence_for": r[5],
-                    "evidence_against": r[6],
-                    "alternative_thought": r[7],
-                    "intensity_after": r[8],
+                    "distortion_code": r[5],
+                    "evidence_for": r[6],
+                    "evidence_against": r[7],
+                    "alternative_thought": r[8],
+                    "intensity_after": r[9],
                 }
             )
         data = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
@@ -337,17 +355,17 @@ async def export_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     lines = ["Clarity export (txt)"]
     for i, r in enumerate(rows, 1):
         delta = "—"
-        if isinstance(r[3], int) and isinstance(r[8], int):
-            delta = r[3] - r[8]
+        if isinstance(r[3], int) and isinstance(r[9], int):
+            delta = r[3] - r[9]
         lines.append(
             f"\n[{i}] {r[0]}\n"
             f"Мысль: {r[1] or '—'}\n"
             f"Эмоция: {r[2] or '—'}\n"
-            f"До/После: {r[3] if r[3] is not None else '—'}/{r[8] if r[8] is not None else '—'} (Δ {delta})\n"
-            f"Искажение: {r[4] or '—'}\n"
-            f"За: {r[5] or '—'}\n"
-            f"Против: {r[6] or '—'}\n"
-            f"Альтернатива: {r[7] or '—'}"
+            f"До/После: {r[3] if r[3] is not None else '—'}/{r[9] if r[9] is not None else '—'} (Δ {delta})\n"
+            f"Искажение: {r[4] or '—'} [{r[5] or '—'}]\n"
+            f"За: {r[6] or '—'}\n"
+            f"Против: {r[7] or '—'}\n"
+            f"Альтернатива: {r[8] or '—'}"
         )
 
     data = "\n".join(lines).encode("utf-8")
@@ -486,13 +504,19 @@ async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text("Не нашла активную запись. Нажми «Новая мысль» и начни заново.")
         return ConversationHandler.END
 
+    distortion_code = DISTORTION_LABEL_TO_CODE.get(distortion, "other")
+
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("UPDATE entries SET distortion = ? WHERE id = ?", (distortion, entry_id))
+    cur.execute(
+        "UPDATE entries SET distortion = ?, distortion_code = ? WHERE id = ?",
+        (distortion, distortion_code, entry_id),
+    )
     conn.commit()
     conn.close()
 
     draft["distortion"] = distortion
+    draft["distortion_code"] = distortion_code
     context.user_data["draft_entry"] = draft
 
     await update.message.reply_text(DISTORTION_SAVED_RU)
@@ -714,7 +738,7 @@ async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_
     return await _finalize_with_after_intensity(update, context, after)
 
 
-def _parse_history_filters(text: str) -> tuple[str | None, str | None, int]:
+def _parse_history_filters(text: str) -> tuple[str | None, str | None, str | None, int]:
     # Примеры:
     # /history
     # /history emotion=Тревога
@@ -722,6 +746,7 @@ def _parse_history_filters(text: str) -> tuple[str | None, str | None, int]:
     # /history emotion=Тревога distortion=Чтение_мыслей days=30
     emotion = None
     distortion = None
+    distortion_code = None
     days = 30
     for part in (text or "").split()[1:]:
         if "=" not in part:
@@ -732,16 +757,20 @@ def _parse_history_filters(text: str) -> tuple[str | None, str | None, int]:
             emotion = v
         elif k == "distortion" and v:
             distortion = v
+            distortion_code = DISTORTION_LABEL_TO_CODE.get(v)
+        elif k == "distortion_code" and v:
+            distortion_code = v.lower()
+            distortion = CODE_TO_DISTORTION_LABEL.get(distortion_code, distortion)
         elif k == "days" and v.isdigit():
             days = max(1, min(365, int(v)))
-    return emotion, distortion, days
+    return emotion, distortion, distortion_code, days
 
 
 async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or not update.effective_user:
         return
 
-    emotion, distortion, days = _parse_history_filters(update.message.text or "")
+    emotion, distortion, distortion_code, days = _parse_history_filters(update.message.text or "")
 
     query = (
         """
@@ -757,7 +786,10 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if emotion:
         query += " AND emotion_label = ?"
         params.append(emotion)
-    if distortion:
+    if distortion_code:
+        query += " AND distortion_code = ?"
+        params.append(distortion_code)
+    elif distortion:
         query += " AND distortion = ?"
         params.append(distortion)
 
@@ -778,6 +810,8 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         filter_line += f", emotion={emotion}"
     if distortion:
         filter_line += f", distortion={distortion}"
+    if distortion_code:
+        filter_line += f", distortion_code={distortion_code}"
 
     lines = ["🗂 Последние 10 карточек:", filter_line]
     for i, r in enumerate(rows, 1):
