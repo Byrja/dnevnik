@@ -1,19 +1,16 @@
 import os
 from dotenv import load_dotenv
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler
+
 from db import init_db
-
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
-        "Привет. Я Clarity CBT 🧠\nГотов начать разбор мысли."
-    )
+from handlers import consent_accept, start
 
 
 def build_app(token: str) -> Application:
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(consent_accept, pattern="^consent_accept$"))
     return app
 
 
