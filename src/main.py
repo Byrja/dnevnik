@@ -14,19 +14,23 @@ from db import init_db
 from handlers import (
     consent_accept,
     new_thought_entry,
+    receive_alternative_thought,
     receive_distortion,
     receive_emotion,
     receive_evidence_against,
     receive_evidence_for,
+    receive_intensity_after,
     receive_intensity_before,
     receive_thought_text,
     start,
 )
 from state import (
+    WAIT_ALTERNATIVE_THOUGHT,
     WAIT_DISTORTION,
     WAIT_EMOTION,
     WAIT_EVIDENCE_AGAINST,
     WAIT_EVIDENCE_FOR,
+    WAIT_INTENSITY_AFTER,
     WAIT_INTENSITY_BEFORE,
     WAIT_THOUGHT,
 )
@@ -52,6 +56,12 @@ def build_app(token: str) -> Application:
             WAIT_EVIDENCE_FOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_evidence_for)],
             WAIT_EVIDENCE_AGAINST: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, receive_evidence_against)
+            ],
+            WAIT_ALTERNATIVE_THOUGHT: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_alternative_thought)
+            ],
+            WAIT_INTENSITY_AFTER: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_intensity_after)
             ],
         },
         fallbacks=[],

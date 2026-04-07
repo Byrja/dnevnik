@@ -3,14 +3,18 @@ from telegram.ext import ContextTypes, ConversationHandler
 
 from db import get_conn
 from state import (
+    WAIT_ALTERNATIVE_THOUGHT,
     WAIT_DISTORTION,
     WAIT_EMOTION,
     WAIT_EVIDENCE_AGAINST,
     WAIT_EVIDENCE_FOR,
+    WAIT_INTENSITY_AFTER,
     WAIT_INTENSITY_BEFORE,
     WAIT_THOUGHT,
 )
 from texts import (
+    ALTERNATIVE_PROMPT_RU,
+    CARD_DONE_TEMPLATE_RU,
     DISCLAIMER_RU,
     DISTORTION_PROMPT_RU,
     DISTORTION_SAVED_RU,
@@ -20,6 +24,7 @@ from texts import (
     EVIDENCE_AGAINST_PROMPT_RU,
     EVIDENCE_FOR_PROMPT_RU,
     EVIDENCE_STEP_DONE_RU,
+    INTENSITY_AFTER_PROMPT_RU,
     INTENSITY_PROMPT_RU,
     MENU_RU,
     START_RU,
@@ -289,4 +294,70 @@ async def receive_evidence_against(update: Update, context: ContextTypes.DEFAULT
     context.user_data["draft_entry"] = draft
 
     await update.message.reply_text(EVIDENCE_STEP_DONE_RU)
+    await update.message.reply_text(ALTERNATIVE_PROMPT_RU)
+    return WAIT_ALTERNATIVE_THOUGHT
+
+
+async def receive_alternative_thought(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not update.message:
+        return ConversationHandler.END
+
+    alt = (update.message.text or "").strip()
+    if len(alt) < 3:
+        await update.message.reply_text("Слишком коротко. Напиши хотя бы 3 символа.")
+        return WAIT_ALTERNATIVE_THOUGHT
+
+    draft = context.user_data.get("draft_entry", {})
+    entry_id = draft.get("entry_id")
+    if not entry_id:
+        await update.message.reply_text("Не нашла активную запись. Нажми «Новая мысль» и начни заново.")
+        return ConversationHandler.END
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE entries SET alternative_thought = ? WHERE id = ?", (alt, entry_id))
+    conn.commit()
+    conn.close()
+
+    draft["alternative_thought"] = alt
+    context.user_data["draft_entry"] = draft
+
+    await update.message.reply_text(INTENSITY_AFTER_PROMPT_RU)
+    return WAIT_INTENSITY_AFTER
+
+
+async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not update.message:
+        return ConversationHandler.END
+
+    raw = (update.message.text or "").strip()
+    if not raw.isdigit():
+        await update.message.reply_text("Нужно число от 0 до 100.")
+        return WAIT_INTENSITY_AFTER
+
+    after = int(raw)
+    if after < 0 or after > 100:
+        await update.message.reply_text("Только диапазон 0–100.")
+        return WAIT_INTENSITY_AFTER
+
+    draft = context.user_data.get("draft_entry", {})
+    entry_id = draft.get("entry_id")
+    if not entry_id:
+        await update.message.reply_text("Не нашла активную запись. Нажми «Новая мысль» и начни заново.")
+        return ConversationHandler.END
+
+    before = int(draft.get("intensity_before", 0))
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE entries SET intensity_after = ? WHERE id = ?", (after, entry_id))
+    conn.commit()
+    conn.close()
+
+    delta = before - after
+    await update.message.reply_text(
+        CARD_DONE_TEMPLATE_RU.format(before=before, after=after, delta=delta)
+    )
+
+    context.user_data.pop("draft_entry", None)
     return ConversationHandler.END
