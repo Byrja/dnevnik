@@ -9,6 +9,7 @@ START_RU = "Привет. Я Clarity CBT 🧠\nПомогу структурно
 
 MENU_RU = "Главное меню:\n• Новая мысль\n• История\n• Настройки"
 CANCEL_HINT_RU = "В любой момент: «Отмена» или «В меню»."
+HISTORY_FILTER_HINT_RU = "Быстрые фильтры: «История 7д», «История 30д», «История тревога»."
 
 SETTINGS_PROMPT_RU = "⚙️ Настройки: выбери тон ответов"
 SETTINGS_SAVED_TEMPLATE_RU = "✅ Тон обновлён: {tone_label}"

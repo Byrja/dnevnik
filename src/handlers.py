@@ -30,6 +30,7 @@ from texts import (
     INTENSITY_AFTER_PROMPT_RU,
     INTENSITY_PROMPT_RU,
     EXPORT_USAGE_RU,
+    HISTORY_FILTER_HINT_RU,
     MENU_RU,
     ONBOARDING_1_RU,
     ONBOARDING_2_RU,
@@ -152,12 +153,22 @@ async def _handle_crisis(update: Update, context: ContextTypes.DEFAULT_TYPE, sou
     return ConversationHandler.END
 
 
-async def _send_main_menu(msg) -> None:
-    keyboard = ReplyKeyboardMarkup(
+def _main_menu_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
         [["Новая мысль", "История"], ["Настройки"]],
         resize_keyboard=True,
     )
-    await msg.reply_text(MENU_RU, reply_markup=keyboard)
+
+
+def _flow_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [["В меню"]],
+        resize_keyboard=True,
+    )
+
+
+async def _send_main_menu(msg) -> None:
+    await msg.reply_text(MENU_RU, reply_markup=_main_menu_keyboard())
 
 
 async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -387,7 +398,7 @@ async def new_thought_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if not update.message or not update.effective_user:
         return ConversationHandler.END
     tone = _get_tone(update.effective_user.id)
-    await update.message.reply_text(f"Шаг 1/8\n{_tone_text(tone, 'thought_prompt')}\n\n{CANCEL_HINT_RU}")
+    await update.message.reply_text(f"Шаг 1/8 • Мысль\n{_tone_text(tone, 'thought_prompt')}\n\n{CANCEL_HINT_RU}", reply_markup=_flow_keyboard())
     return WAIT_THOUGHT
 
 
@@ -413,8 +424,7 @@ async def receive_thought_text(update: Update, context: ContextTypes.DEFAULT_TYP
         one_time_keyboard=True,
     )
     tone = _get_tone(update.effective_user.id)
-    await update.message.reply_text(_tone_text(tone, "thought_saved"))
-    await update.message.reply_text(f"Шаг 2/8\n{EMOTION_PROMPT_RU}", reply_markup=emotion_keyboard)
+    await update.message.reply_text(f"{_tone_text(tone, 'thought_saved')}\n\nШаг 2/8 • Эмоция\n{EMOTION_PROMPT_RU}", reply_markup=emotion_keyboard)
     return WAIT_EMOTION
 
 
@@ -433,7 +443,7 @@ async def receive_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     context.user_data["draft_entry"] = draft
 
     await update.message.reply_text(EMOTION_SAVED_RU)
-    await update.message.reply_text(f"Шаг 3/8\n{INTENSITY_PROMPT_RU}")
+    await update.message.reply_text(f"Шаг 3/8 • Интенсивность до\n{INTENSITY_PROMPT_RU}", reply_markup=_flow_keyboard())
     return WAIT_INTENSITY_BEFORE
 
 
@@ -494,7 +504,7 @@ async def receive_intensity_before(update: Update, context: ContextTypes.DEFAULT
     )
 
     await update.message.reply_text(EMOTION_STEP_DONE_RU)
-    await update.message.reply_text(f"Шаг 4/8\n{DISTORTION_PROMPT_RU}", reply_markup=distortion_keyboard)
+    await update.message.reply_text(f"Шаг 4/8 • Искажение\n{DISTORTION_PROMPT_RU}", reply_markup=distortion_keyboard)
     return WAIT_DISTORTION
 
 
@@ -529,7 +539,7 @@ async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data["draft_entry"] = draft
 
     await update.message.reply_text(DISTORTION_SAVED_RU)
-    await update.message.reply_text(f"Шаг 5/8\n{EVIDENCE_FOR_PROMPT_RU}")
+    await update.message.reply_text(f"Шаг 5/8 • Факты за\n{EVIDENCE_FOR_PROMPT_RU}", reply_markup=_flow_keyboard())
     return WAIT_EVIDENCE_FOR
 
 
@@ -559,7 +569,7 @@ async def receive_evidence_for(update: Update, context: ContextTypes.DEFAULT_TYP
     draft["evidence_for"] = evidence_for
     context.user_data["draft_entry"] = draft
 
-    await update.message.reply_text(f"Шаг 6/8\n{EVIDENCE_AGAINST_PROMPT_RU}")
+    await update.message.reply_text(f"Шаг 6/8 • Факты против\n{EVIDENCE_AGAINST_PROMPT_RU}", reply_markup=_flow_keyboard())
     return WAIT_EVIDENCE_AGAINST
 
 
@@ -609,7 +619,7 @@ async def receive_evidence_against(update: Update, context: ContextTypes.DEFAULT
     context.user_data["draft_entry"] = draft
 
     await update.message.reply_text(EVIDENCE_STEP_DONE_RU)
-    await update.message.reply_text(f"Шаг 7/8\n{ALTERNATIVE_PROMPT_RU}")
+    await update.message.reply_text(f"Шаг 7/8 • Альтернативная мысль\n{ALTERNATIVE_PROMPT_RU}", reply_markup=_flow_keyboard())
     await update.message.reply_text(ALTERNATIVE_HINT_PROMPT_RU, reply_markup=_alternative_hint_keyboard())
     return WAIT_ALTERNATIVE_THOUGHT
 
@@ -651,8 +661,10 @@ async def _finalize_with_after_intensity(update: Update, context: ContextTypes.D
     next_step = _next_step_recommendation(delta=delta, after=after, distortion=distortion)
     if update.message:
         await update.message.reply_text(
-            CARD_DONE_TEMPLATE_RU.format(before=before, after=after, delta=delta, next_step=next_step)
+            CARD_DONE_TEMPLATE_RU.format(before=before, after=after, delta=delta, next_step=next_step),
+            reply_markup=_main_menu_keyboard(),
         )
+        await update.message.reply_text("Что дальше? Нажми «Новая мысль» или открой «История».")
 
     context.user_data.pop("draft_entry", None)
     return ConversationHandler.END
@@ -691,7 +703,7 @@ async def receive_alternative_thought(update: Update, context: ContextTypes.DEFA
     draft["alternative_thought"] = alt
     context.user_data["draft_entry"] = draft
 
-    await update.message.reply_text(f"Шаг 8/8\n{INTENSITY_AFTER_PROMPT_RU}")
+    await update.message.reply_text(f"Шаг 8/8 • Интенсивность после\n{INTENSITY_AFTER_PROMPT_RU}", reply_markup=_flow_keyboard())
     return WAIT_INTENSITY_AFTER
 
 
@@ -721,7 +733,7 @@ async def apply_alternative_hint(update: Update, context: ContextTypes.DEFAULT_T
     context.user_data["draft_entry"] = draft
 
     await query.message.reply_text(f"Подсказка:\n{hint_text}")
-    await query.message.reply_text(f"Шаг 8/8\n{INTENSITY_AFTER_PROMPT_RU}")
+    await query.message.reply_text(f"Шаг 8/8 • Интенсивность после\n{INTENSITY_AFTER_PROMPT_RU}", reply_markup=_flow_keyboard())
 
 
 async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -748,16 +760,23 @@ async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_
 
 
 def _parse_history_filters(text: str) -> tuple[str | None, str | None, str | None, int]:
-    # Примеры:
-    # /history
-    # /history emotion=Тревога
-    # /history distortion=Катастрофизация days=7
-    # /history emotion=Тревога distortion=Чтение_мыслей days=30
     emotion = None
     distortion = None
     distortion_code = None
     days = 30
-    for part in (text or "").split()[1:]:
+    parts = (text or "").split()
+
+    # quick UI shortcuts: "История 7д", "История 30д", "История тревога"
+    if len(parts) >= 2 and parts[0].lower() == "история":
+        p = parts[1].lower()
+        if p in {"7д", "7d"}:
+            days = 7
+        elif p in {"30д", "30d"}:
+            days = 30
+        elif p in {"тревога", "грусть", "злость", "стыд", "вина", "страх", "раздражение", "пустота"}:
+            emotion = parts[1].capitalize()
+
+    for part in parts[1:]:
         if "=" not in part:
             continue
         k, v = part.split("=", 1)
@@ -837,4 +856,5 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         lines.append(f"{i}) {emo} | {before}→{after} | Δ {delta} | {dist} | {thought}")
 
     lines.append("\nПримеры: /history emotion=Тревога | /history distortion=Катастрофизация days=7")
+    lines.append(HISTORY_FILTER_HINT_RU)
     await update.message.reply_text("\n".join(lines))
