@@ -15,6 +15,7 @@ from state import (
 from texts import (
     ALTERNATIVE_PROMPT_RU,
     CARD_DONE_TEMPLATE_RU,
+    CRISIS_SUPPORT_RU,
     DISCLAIMER_RU,
     DISTORTION_PROMPT_RU,
     DISTORTION_SAVED_RU,
@@ -89,6 +90,41 @@ def _tone_text(tone: str, key: str) -> str:
         },
     }
     return tone_map.get(key, {}).get(tone, tone_map.get(key, {}).get("warm", ""))
+
+
+def _contains_crisis_signal(text: str) -> bool:
+    s = (text or "").lower()
+    markers = [
+        "хочу умер",
+        "не хочу жить",
+        "поконч",
+        "суиц",
+        "причинить себе вред",
+        "навредить себе",
+        "убить себя",
+        "умереть",
+    ]
+    return any(m in s for m in markers)
+
+
+async def _handle_crisis(update: Update, context: ContextTypes.DEFAULT_TYPE, source_text: str) -> int:
+    if update.effective_user:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO entries (tg_user_id, thought_text, emotion_label)
+            VALUES (?, ?, ?)
+            """,
+            (update.effective_user.id, source_text[:500], "CRISIS_SIGNAL"),
+        )
+        conn.commit()
+        conn.close()
+
+    context.user_data.pop("draft_entry", None)
+    if update.message:
+        await update.message.reply_text(CRISIS_SUPPORT_RU)
+    return ConversationHandler.END
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -176,6 +212,8 @@ async def receive_thought_text(update: Update, context: ContextTypes.DEFAULT_TYP
         return ConversationHandler.END
 
     thought_text = (update.message.text or "").strip()
+    if _contains_crisis_signal(thought_text):
+        return await _handle_crisis(update, context, thought_text)
     if len(thought_text) < 3:
         await update.message.reply_text("Слишком коротко. Напиши хотя бы 3 символа.")
         return WAIT_THOUGHT
@@ -200,6 +238,8 @@ async def receive_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not update.message:
         return ConversationHandler.END
     emotion = (update.message.text or "").strip()
+    if _contains_crisis_signal(emotion):
+        return await _handle_crisis(update, context, emotion)
     if not emotion:
         await update.message.reply_text("Выбери эмоцию кнопкой или введи текстом.")
         return WAIT_EMOTION
@@ -308,6 +348,8 @@ async def receive_evidence_for(update: Update, context: ContextTypes.DEFAULT_TYP
         return ConversationHandler.END
 
     evidence_for = (update.message.text or "").strip()
+    if _contains_crisis_signal(evidence_for):
+        return await _handle_crisis(update, context, evidence_for)
     if len(evidence_for) < 3:
         await update.message.reply_text("Слишком коротко. Напиши хотя бы 3 символа.")
         return WAIT_EVIDENCE_FOR
@@ -336,6 +378,8 @@ async def receive_evidence_against(update: Update, context: ContextTypes.DEFAULT
         return ConversationHandler.END
 
     evidence_against = (update.message.text or "").strip()
+    if _contains_crisis_signal(evidence_against):
+        return await _handle_crisis(update, context, evidence_against)
     if len(evidence_against) < 3:
         await update.message.reply_text("Слишком коротко. Напиши хотя бы 3 символа.")
         return WAIT_EVIDENCE_AGAINST
@@ -365,6 +409,8 @@ async def receive_alternative_thought(update: Update, context: ContextTypes.DEFA
         return ConversationHandler.END
 
     alt = (update.message.text or "").strip()
+    if _contains_crisis_signal(alt):
+        return await _handle_crisis(update, context, alt)
     if len(alt) < 3:
         await update.message.reply_text("Слишком коротко. Напиши хотя бы 3 символа.")
         return WAIT_ALTERNATIVE_THOUGHT
