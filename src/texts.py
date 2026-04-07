@@ -8,6 +8,7 @@ DISCLAIMER_RU = (
 START_RU = "Привет. Я Clarity CBT 🧠\nПомогу структурно разобрать мысль за несколько минут."
 
 MENU_RU = "Главное меню:\n• Новая мысль\n• История\n• Настройки"
+CANCEL_HINT_RU = "В любой момент: «Отмена» или «В меню»."
 
 SETTINGS_PROMPT_RU = "⚙️ Настройки: выбери тон ответов"
 SETTINGS_SAVED_TEMPLATE_RU = "✅ Тон обновлён: {tone_label}"

@@ -15,6 +15,7 @@ from state import (
 from texts import (
     ALTERNATIVE_HINT_PROMPT_RU,
     ALTERNATIVE_PROMPT_RU,
+    CANCEL_HINT_RU,
     CARD_DONE_TEMPLATE_RU,
     CRISIS_SUPPORT_RU,
     DISCLAIMER_RU,
@@ -134,18 +135,30 @@ async def _handle_crisis(update: Update, context: ContextTypes.DEFAULT_TYPE, sou
     return ConversationHandler.END
 
 
+async def _send_main_menu(msg) -> None:
+    keyboard = ReplyKeyboardMarkup(
+        [["Новая мысль", "История"], ["Настройки"]],
+        resize_keyboard=True,
+    )
+    await msg.reply_text(MENU_RU, reply_markup=keyboard)
+
+
+async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if update.message:
+        context.user_data.pop("draft_entry", None)
+        await update.message.reply_text("Ок, остановила текущий разбор.")
+        await _send_main_menu(update.message)
+    return ConversationHandler.END
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     if not user or not update.message:
         return
 
     if _user_exists(user.id):
-        keyboard = ReplyKeyboardMarkup(
-            [["Новая мысль", "История"], ["Настройки"]],
-            resize_keyboard=True,
-        )
         await update.message.reply_text(START_RU)
-        await update.message.reply_text(MENU_RU, reply_markup=keyboard)
+        await _send_main_menu(update.message)
         return
 
     keyboard = InlineKeyboardMarkup(
@@ -168,14 +181,10 @@ async def consent_accept(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     _save_user_with_default_settings(update)
 
-    keyboard = ReplyKeyboardMarkup(
-        [["Новая мысль", "История"], ["Настройки"]],
-        resize_keyboard=True,
-    )
     await query.edit_message_text("✅ Согласие сохранено.")
     await query.message.reply_text(START_RU)
     await _send_onboarding(query.message)
-    await query.message.reply_text(MENU_RU, reply_markup=keyboard)
+    await _send_main_menu(query.message)
 
 
 async def show_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -349,7 +358,7 @@ async def new_thought_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if not update.message or not update.effective_user:
         return ConversationHandler.END
     tone = _get_tone(update.effective_user.id)
-    await update.message.reply_text(_tone_text(tone, "thought_prompt"))
+    await update.message.reply_text(f"Шаг 1/8\n{_tone_text(tone, 'thought_prompt')}\n\n{CANCEL_HINT_RU}")
     return WAIT_THOUGHT
 
 
@@ -376,7 +385,7 @@ async def receive_thought_text(update: Update, context: ContextTypes.DEFAULT_TYP
     )
     tone = _get_tone(update.effective_user.id)
     await update.message.reply_text(_tone_text(tone, "thought_saved"))
-    await update.message.reply_text(EMOTION_PROMPT_RU, reply_markup=emotion_keyboard)
+    await update.message.reply_text(f"Шаг 2/8\n{EMOTION_PROMPT_RU}", reply_markup=emotion_keyboard)
     return WAIT_EMOTION
 
 
@@ -395,7 +404,7 @@ async def receive_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     context.user_data["draft_entry"] = draft
 
     await update.message.reply_text(EMOTION_SAVED_RU)
-    await update.message.reply_text(INTENSITY_PROMPT_RU)
+    await update.message.reply_text(f"Шаг 3/8\n{INTENSITY_PROMPT_RU}")
     return WAIT_INTENSITY_BEFORE
 
 
@@ -456,7 +465,7 @@ async def receive_intensity_before(update: Update, context: ContextTypes.DEFAULT
     )
 
     await update.message.reply_text(EMOTION_STEP_DONE_RU)
-    await update.message.reply_text(DISTORTION_PROMPT_RU, reply_markup=distortion_keyboard)
+    await update.message.reply_text(f"Шаг 4/8\n{DISTORTION_PROMPT_RU}", reply_markup=distortion_keyboard)
     return WAIT_DISTORTION
 
 
@@ -485,7 +494,7 @@ async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data["draft_entry"] = draft
 
     await update.message.reply_text(DISTORTION_SAVED_RU)
-    await update.message.reply_text(EVIDENCE_FOR_PROMPT_RU)
+    await update.message.reply_text(f"Шаг 5/8\n{EVIDENCE_FOR_PROMPT_RU}")
     return WAIT_EVIDENCE_FOR
 
 
@@ -515,7 +524,7 @@ async def receive_evidence_for(update: Update, context: ContextTypes.DEFAULT_TYP
     draft["evidence_for"] = evidence_for
     context.user_data["draft_entry"] = draft
 
-    await update.message.reply_text(EVIDENCE_AGAINST_PROMPT_RU)
+    await update.message.reply_text(f"Шаг 6/8\n{EVIDENCE_AGAINST_PROMPT_RU}")
     return WAIT_EVIDENCE_AGAINST
 
 
@@ -565,7 +574,7 @@ async def receive_evidence_against(update: Update, context: ContextTypes.DEFAULT
     context.user_data["draft_entry"] = draft
 
     await update.message.reply_text(EVIDENCE_STEP_DONE_RU)
-    await update.message.reply_text(ALTERNATIVE_PROMPT_RU)
+    await update.message.reply_text(f"Шаг 7/8\n{ALTERNATIVE_PROMPT_RU}")
     await update.message.reply_text(ALTERNATIVE_HINT_PROMPT_RU, reply_markup=_alternative_hint_keyboard())
     return WAIT_ALTERNATIVE_THOUGHT
 
@@ -644,7 +653,7 @@ async def receive_alternative_thought(update: Update, context: ContextTypes.DEFA
     draft["alternative_thought"] = alt
     context.user_data["draft_entry"] = draft
 
-    await update.message.reply_text(INTENSITY_AFTER_PROMPT_RU)
+    await update.message.reply_text(f"Шаг 8/8\n{INTENSITY_AFTER_PROMPT_RU}")
     return WAIT_INTENSITY_AFTER
 
 
@@ -674,7 +683,7 @@ async def apply_alternative_hint(update: Update, context: ContextTypes.DEFAULT_T
     context.user_data["draft_entry"] = draft
 
     await query.message.reply_text(f"Подсказка:\n{hint_text}")
-    await query.message.reply_text(INTENSITY_AFTER_PROMPT_RU)
+    await query.message.reply_text(f"Шаг 8/8\n{INTENSITY_AFTER_PROMPT_RU}")
 
 
 async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

@@ -13,6 +13,7 @@ from telegram.ext import (
 from db import init_db
 from handlers import (
     apply_alternative_hint,
+    cancel_flow,
     consent_accept,
     export_progress,
     new_thought_entry,
@@ -81,7 +82,10 @@ def build_app(token: str) -> Application:
                 MessageHandler(filters.TEXT & ~filters.COMMAND, receive_intensity_after)
             ],
         },
-        fallbacks=[],
+        fallbacks=[
+            CommandHandler("cancel", cancel_flow),
+            MessageHandler(filters.Regex(r"^(Отмена|В меню)$"), cancel_flow),
+        ],
         allow_reentry=True,
     )
     app.add_handler(thought_flow)
