@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
@@ -16,6 +17,7 @@ def build_app(token: str) -> Application:
 
 
 if __name__ == "__main__":
+    load_dotenv()
     token = os.getenv("TELEGRAM_BOT_TOKEN", "")
     if not token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is not set")
