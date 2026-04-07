@@ -278,6 +278,7 @@ async def send_daily_nudges(context: ContextTypes.DEFAULT_TYPE) -> None:
         SELECT s.tg_user_id
         FROM settings s
         WHERE COALESCE(s.reminders_enabled, 1) = 1
+          AND (s.last_nudge_at IS NULL OR datetime(s.last_nudge_at) <= datetime('now', '-20 hours'))
           AND NOT EXISTS (
               SELECT 1 FROM entries e
               WHERE e.tg_user_id = s.tg_user_id
@@ -292,6 +293,14 @@ async def send_daily_nudges(context: ContextTypes.DEFAULT_TYPE) -> None:
     for tg_user_id in users:
         try:
             await app.bot.send_message(chat_id=tg_user_id, text=REMINDER_NUDGE_RU)
+            conn2 = get_conn()
+            cur2 = conn2.cursor()
+            cur2.execute(
+                "UPDATE settings SET last_nudge_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE tg_user_id = ?",
+                (tg_user_id,),
+            )
+            conn2.commit()
+            conn2.close()
         except Exception:
             continue
 
