@@ -22,7 +22,9 @@ from handlers import (
     receive_intensity_after,
     receive_intensity_before,
     receive_thought_text,
+    set_tone,
     show_history,
+    show_settings,
     start,
 )
 from state import (
@@ -41,8 +43,11 @@ def build_app(token: str) -> Application:
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(consent_accept, pattern="^consent_accept$"))
+    app.add_handler(CallbackQueryHandler(set_tone, pattern=r"^tone:(warm|neutral)$"))
     app.add_handler(CommandHandler("history", show_history))
     app.add_handler(MessageHandler(filters.Regex(r"^История$"), show_history))
+    app.add_handler(CommandHandler("settings", show_settings))
+    app.add_handler(MessageHandler(filters.Regex(r"^Настройки$"), show_settings))
 
     thought_flow = ConversationHandler(
         entry_points=[

@@ -27,6 +27,8 @@ from texts import (
     INTENSITY_AFTER_PROMPT_RU,
     INTENSITY_PROMPT_RU,
     MENU_RU,
+    SETTINGS_PROMPT_RU,
+    SETTINGS_SAVED_TEMPLATE_RU,
     START_RU,
     THOUGHT_PROMPT_RU,
     THOUGHT_SAVED_RU,
@@ -66,6 +68,29 @@ def _save_user_with_default_settings(update: Update) -> None:
     conn.close()
 
 
+def _get_tone(tg_user_id: int) -> str:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT tone FROM settings WHERE tg_user_id = ?", (tg_user_id,))
+    row = cur.fetchone()
+    conn.close()
+    return (row[0] if row else "warm") or "warm"
+
+
+def _tone_text(tone: str, key: str) -> str:
+    tone_map = {
+        "thought_prompt": {
+            "warm": THOUGHT_PROMPT_RU,
+            "neutral": "Введите исходную мысль (1–2 предложения).",
+        },
+        "thought_saved": {
+            "warm": THOUGHT_SAVED_RU,
+            "neutral": "Мысль сохранена. Выберите эмоцию.",
+        },
+    }
+    return tone_map.get(key, {}).get(tone, tone_map.get(key, {}).get("warm", ""))
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     if not user or not update.message:
@@ -103,10 +128,46 @@ async def consent_accept(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await query.message.reply_text(MENU_RU, reply_markup=keyboard)
 
 
-async def new_thought_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message:
+        return
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Тёплый", callback_data="tone:warm")],
+            [InlineKeyboardButton("Нейтральный", callback_data="tone:neutral")],
+        ]
+    )
+    await update.message.reply_text(SETTINGS_PROMPT_RU, reply_markup=kb)
+
+
+async def set_tone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query or not update.effective_user:
+        return
+    await query.answer()
+
+    _, tone = (query.data or "tone:warm").split(":", 1)
+    if tone not in {"warm", "neutral"}:
+        tone = "warm"
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE settings SET tone = ?, updated_at = CURRENT_TIMESTAMP WHERE tg_user_id = ?",
+        (tone, update.effective_user.id),
+    )
+    conn.commit()
+    conn.close()
+
+    label = "тёплый" if tone == "warm" else "нейтральный"
+    await query.edit_message_text(SETTINGS_SAVED_TEMPLATE_RU.format(tone_label=label))
+
+
+async def new_thought_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not update.message or not update.effective_user:
         return ConversationHandler.END
-    await update.message.reply_text(THOUGHT_PROMPT_RU)
+    tone = _get_tone(update.effective_user.id)
+    await update.message.reply_text(_tone_text(tone, "thought_prompt"))
     return WAIT_THOUGHT
 
 
@@ -129,7 +190,8 @@ async def receive_thought_text(update: Update, context: ContextTypes.DEFAULT_TYP
         resize_keyboard=True,
         one_time_keyboard=True,
     )
-    await update.message.reply_text(THOUGHT_SAVED_RU)
+    tone = _get_tone(update.effective_user.id)
+    await update.message.reply_text(_tone_text(tone, "thought_saved"))
     await update.message.reply_text(EMOTION_PROMPT_RU, reply_markup=emotion_keyboard)
     return WAIT_EMOTION
 
