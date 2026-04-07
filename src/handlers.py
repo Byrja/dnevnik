@@ -361,3 +361,42 @@ async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_
 
     context.user_data.pop("draft_entry", None)
     return ConversationHandler.END
+
+
+async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message or not update.effective_user:
+        return
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT created_at, thought_text, emotion_label, intensity_before, intensity_after
+        FROM entries
+        WHERE tg_user_id = ?
+        ORDER BY id DESC
+        LIMIT 10
+        """,
+        (update.effective_user.id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        await update.message.reply_text("Пока нет завершённых карточек. Нажми «Новая мысль» и сделай первый разбор.")
+        return
+
+    lines = ["🗂 Последние 10 карточек:"]
+    for i, r in enumerate(rows, 1):
+        thought = (r[1] or "").replace("\n", " ").strip()
+        if len(thought) > 48:
+            thought = thought[:48] + "…"
+        emo = r[2] or "—"
+        before = r[3] if r[3] is not None else "—"
+        after = r[4] if r[4] is not None else "—"
+        delta = "—"
+        if isinstance(before, int) and isinstance(after, int):
+            delta = before - after
+        lines.append(f"{i}) {emo} | {before}→{after} | Δ {delta} | {thought}")
+
+    await update.message.reply_text("\n".join(lines))

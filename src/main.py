@@ -22,6 +22,7 @@ from handlers import (
     receive_intensity_after,
     receive_intensity_before,
     receive_thought_text,
+    show_history,
     start,
 )
 from state import (
@@ -40,6 +41,8 @@ def build_app(token: str) -> Application:
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(consent_accept, pattern="^consent_accept$"))
+    app.add_handler(CommandHandler("history", show_history))
+    app.add_handler(MessageHandler(filters.Regex(r"^История$"), show_history))
 
     thought_flow = ConversationHandler(
         entry_points=[
