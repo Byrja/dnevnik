@@ -1,16 +1,37 @@
 import os
 from dotenv import load_dotenv
 from telegram import Update
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ConversationHandler,
+    MessageHandler,
+    filters,
+)
 
 from db import init_db
-from handlers import consent_accept, start
+from handlers import consent_accept, new_thought_entry, receive_thought_text, start
+from state import WAIT_THOUGHT
 
 
 def build_app(token: str) -> Application:
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(consent_accept, pattern="^consent_accept$"))
+
+    thought_flow = ConversationHandler(
+        entry_points=[
+            CommandHandler("new", new_thought_entry),
+            MessageHandler(filters.Regex(r"^Новая мысль$"), new_thought_entry),
+        ],
+        states={
+            WAIT_THOUGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_thought_text)],
+        },
+        fallbacks=[],
+        allow_reentry=True,
+    )
+    app.add_handler(thought_flow)
     return app
 
 

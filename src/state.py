@@ -1,0 +1,1 @@
+WAIT_THOUGHT = 1

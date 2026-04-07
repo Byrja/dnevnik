@@ -1,8 +1,9 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, ConversationHandler
 
 from db import get_conn
-from texts import DISCLAIMER_RU, MENU_RU, START_RU
+from state import WAIT_THOUGHT
+from texts import DISCLAIMER_RU, MENU_RU, START_RU, THOUGHT_PROMPT_RU, THOUGHT_SAVED_RU
 
 
 def _user_exists(tg_user_id: int) -> bool:
@@ -73,3 +74,27 @@ async def consent_accept(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await query.edit_message_text("✅ Согласие сохранено.")
     await query.message.reply_text(START_RU)
     await query.message.reply_text(MENU_RU, reply_markup=keyboard)
+
+
+async def new_thought_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not update.message:
+        return ConversationHandler.END
+    await update.message.reply_text(THOUGHT_PROMPT_RU)
+    return WAIT_THOUGHT
+
+
+async def receive_thought_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not update.message or not update.effective_user:
+        return ConversationHandler.END
+
+    thought_text = (update.message.text or "").strip()
+    if len(thought_text) < 3:
+        await update.message.reply_text("Слишком коротко. Напиши хотя бы 3 символа.")
+        return WAIT_THOUGHT
+
+    context.user_data["draft_entry"] = {
+        "tg_user_id": update.effective_user.id,
+        "thought_text": thought_text,
+    }
+    await update.message.reply_text(THOUGHT_SAVED_RU)
+    return ConversationHandler.END
