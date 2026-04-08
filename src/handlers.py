@@ -1,7 +1,9 @@
+import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
 from telegram.ext import ContextTypes, ConversationHandler
 
 from db import get_conn
+from logger import log_error, log_update
 from state import (
     WAIT_ALTERNATIVE_THOUGHT,
     WAIT_DISTORTION,
@@ -27,9 +29,11 @@ from texts import (
     EVIDENCE_AGAINST_PROMPT_RU,
     EVIDENCE_FOR_PROMPT_RU,
     EVIDENCE_STEP_DONE_RU,
+    HELP_RU,
     INTENSITY_AFTER_PROMPT_RU,
     INTENSITY_PROMPT_RU,
     EXPORT_USAGE_RU,
+    HISTORY_EMPTY_RU,
     HISTORY_FILTER_HINT_RU,
     MENU_RU,
     ONBOARDING_1_RU,
@@ -40,8 +44,11 @@ from texts import (
     SETTINGS_PROMPT_RU,
     SETTINGS_SAVED_TEMPLATE_RU,
     START_RU,
+    STATS_EMPTY_RU,
+    STATS_RU,
     THOUGHT_PROMPT_RU,
     THOUGHT_SAVED_RU,
+    _format_result,
 )
 
 
@@ -155,9 +162,19 @@ async def _handle_crisis(update: Update, context: ContextTypes.DEFAULT_TYPE, sou
 
 def _main_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        [["Новая мысль", "История"], ["Настройки"]],
+        [["🎯 Новая мысль", "📜 История"], ["⚙️ Настройки"]],
         resize_keyboard=True,
     )
+
+
+def _main_menu_inline() -> InlineKeyboardMarkup:
+    """Inline buttons for main menu (optional modern UI)."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎯 Новая мысль", callback_data="menu:new")],
+        [InlineKeyboardButton("📜 История", callback_data="menu:history")],
+        [InlineKeyboardButton("⚙️ Настройки", callback_data="menu:settings")],
+        [InlineKeyboardButton("❓ Помощь", callback_data="menu:help")],
+    ])
 
 
 def _flow_keyboard() -> ReplyKeyboardMarkup:
@@ -256,6 +273,98 @@ async def set_tone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await query.edit_message_text(SETTINGS_SAVED_TEMPLATE_RU.format(tone_label=label))
 
 
+async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show help message with all commands."""
+    if not update.message:
+        return
+    await update.message.reply_text(HELP_RU, parse_mode=None)
+
+
+async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show user statistics."""
+    if not update.message or not update.effective_user:
+        return
+
+    user_id = update.effective_user.id
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    # Total cards
+    cur.execute("SELECT COUNT(*) FROM entries WHERE tg_user_id = ? AND is_completed = 1", (user_id,))
+    total = cur.fetchone()[0] or 0
+
+    if total == 0:
+        conn.close()
+        await update.message.reply_text(STATS_EMPTY_RU)
+        return
+
+    # Cards in last 7 days
+    cur.execute(
+        "SELECT COUNT(*) FROM entries WHERE tg_user_id = ? AND is_completed = 1 AND datetime(COALESCE(completed_at, created_at)) >= datetime('now', '-7 days')",
+        (user_id,),
+    )
+    week = cur.fetchone()[0] or 0
+
+    # Cards in last 30 days
+    cur.execute(
+        "SELECT COUNT(*) FROM entries WHERE tg_user_id = ? AND is_completed = 1 AND datetime(COALESCE(completed_at, created_at)) >= datetime('now', '-30 days')",
+        (user_id,),
+    )
+    month = cur.fetchone()[0] or 0
+
+    # Average delta
+    cur.execute(
+        "SELECT AVG(intensity_before - intensity_after) FROM entries WHERE tg_user_id = ? AND is_completed = 1 AND intensity_before IS NOT NULL AND intensity_after IS NOT NULL",
+        (user_id,),
+    )
+    avg_row = cur.fetchone()[0]
+    avg_delta = f"{avg_row:.1f}" if avg_row else "—"
+
+    # Calculate streak (consecutive days with completed cards)
+    cur.execute(
+        "SELECT DISTINCT date(COALESCE(completed_at, created_at)) as day FROM entries WHERE tg_user_id = ? AND is_completed = 1 ORDER BY day DESC",
+        (user_id,),
+    )
+    days = [r[0] for r in cur.fetchall()]
+
+    streak = 0
+    if days:
+        from datetime import datetime, timedelta
+        today = datetime.now().date()
+        expected = today
+        for d in days:
+            day_date = datetime.strptime(d, "%Y-%m-%d").date()
+            if day_date == expected or day_date == expected - timedelta(days=1):
+                streak += 1
+                expected = day_date - timedelta(days=1)
+            else:
+                break
+
+    # Top emotions
+    cur.execute(
+        "SELECT emotion_label, COUNT(*) as cnt FROM entries WHERE tg_user_id = ? AND is_completed = 1 AND emotion_label IS NOT NULL AND emotion_label != 'CRISIS_SIGNAL' GROUP BY emotion_label ORDER BY cnt DESC LIMIT 5",
+        (user_id,),
+    )
+    top_emotions = [f"  • {r[0]}: {r[1]}" for r in cur.fetchall()]
+    top_emotions_str = "\n".join(top_emotions) if top_emotions else "  Пока нет данных"
+
+    conn.close()
+
+    # Build message
+    emoji = "⭐" if streak >= 3 else "💡"
+    stats_text = STATS_RU.format(
+        emoji=emoji,
+        total=total,
+        week=week,
+        month=month,
+        avg_delta=avg_delta,
+        streak=streak,
+        top_emotions=top_emotions_str,
+    )
+    await update.message.reply_text(stats_text)
+
+
 async def set_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or not update.effective_user:
         return
@@ -312,8 +421,8 @@ async def send_daily_nudges(context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             conn2.commit()
             conn2.close()
-        except Exception:
-            continue
+        except Exception as e:
+            logging.error(f"send_daily_nudges | Failed to send nudge to user={tg_user_id}: {e}")
 
 
 async def export_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -660,11 +769,9 @@ async def _finalize_with_after_intensity(update: Update, context: ContextTypes.D
     delta = before - after
     next_step = _next_step_recommendation(delta=delta, after=after, distortion=distortion)
     if update.message:
-        await update.message.reply_text(
-            CARD_DONE_TEMPLATE_RU.format(before=before, after=after, delta=delta, next_step=next_step),
-            reply_markup=_main_menu_keyboard(),
-        )
-        await update.message.reply_text("Что дальше? Нажми «Новая мысль» или открой «История».")
+        # Use the new formatted result with visual elements
+        result_text = _format_result(before=before, after=after, delta=delta, next_step=next_step)
+        await update.message.reply_text(result_text, reply_markup=_main_menu_keyboard())
 
     context.user_data.pop("draft_entry", None)
     return ConversationHandler.END
@@ -830,22 +937,14 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     conn.close()
 
     if not rows:
-        await update.message.reply_text("По этому фильтру записей нет. Попробуй /history или увеличь days=.")
+        await update.message.reply_text(HISTORY_EMPTY_RU)
         return
 
-    filter_line = f"Фильтр: days={days}"
-    if emotion:
-        filter_line += f", emotion={emotion}"
-    if distortion:
-        filter_line += f", distortion={distortion}"
-    if distortion_code:
-        filter_line += f", distortion_code={distortion_code}"
-
-    lines = ["🗂 Последние 10 карточек:", filter_line]
-    for i, r in enumerate(rows, 1):
+    lines = [f"📜 История (последние {len(rows)} карточек)\n━━━━━━━━━━━━━━━"]
+    for r in rows:
         thought = (r[1] or "").replace("\n", " ").strip()
-        if len(thought) > 48:
-            thought = thought[:48] + "…"
+        if len(thought) > 40:
+            thought = thought[:40] + "…"
         emo = r[2] or "—"
         before = r[3] if r[3] is not None else "—"
         after = r[4] if r[4] is not None else "—"
@@ -853,8 +952,19 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         delta = "—"
         if isinstance(before, int) and isinstance(after, int):
             delta = before - after
-        lines.append(f"{i}) {emo} | {before}→{after} | Δ {delta} | {dist} | {thought}")
 
-    lines.append("\nПримеры: /history emotion=Тревога | /history distortion=Катастрофизация days=7")
-    lines.append(HISTORY_FILTER_HINT_RU)
+        # Visual indicator for improvement
+        if isinstance(delta, int):
+            if delta > 0:
+                delta_str = f"↓{delta}"  # Down arrow for improvement
+            elif delta < 0:
+                delta_str = f"↑{abs(delta)}"
+            else:
+                delta_str = "—"
+        else:
+            delta_str = delta
+
+        lines.append(f"• {emo} {delta_str}\n  {thought[:35]}")
+
+    lines.append(f"\n{HISTORY_FILTER_HINT_RU}")
     await update.message.reply_text("\n".join(lines))

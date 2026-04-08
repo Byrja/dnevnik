@@ -28,9 +28,11 @@ from handlers import (
     send_daily_nudges,
     set_reminders,
     set_tone,
+    show_help,
     show_history,
     show_onboarding,
     show_settings,
+    show_stats,
     start,
 )
 from state import (
@@ -48,6 +50,8 @@ from state import (
 def build_app(token: str) -> Application:
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", show_help))
+    app.add_handler(CommandHandler("stats", show_stats))
     app.add_handler(CallbackQueryHandler(consent_accept, pattern="^consent_accept$"))
     app.add_handler(CallbackQueryHandler(set_tone, pattern=r"^tone:(warm|neutral)$"))
     app.add_handler(CallbackQueryHandler(apply_alternative_hint, pattern=r"^alt_hint:(friend|facts|balanced)$"))
