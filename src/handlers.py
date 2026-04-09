@@ -111,6 +111,18 @@ def _tone_text(tone: str, key: str) -> str:
             "warm": EMOTION_SAVED_RU,
             "neutral": "Эмоция принята. Оцени интенсивность 0–100.",
         },
+        "distortion_saved": {
+            "warm": DISTORTION_SAVED_RU,
+            "neutral": "Искажение зафиксировано. Переходим к фактам.",
+        },
+        "evidence_step_done": {
+            "warm": EVIDENCE_STEP_DONE_RU,
+            "neutral": "Факты собраны. Сформулируй альтернативную мысль.",
+        },
+        "result_preface": {
+            "warm": "Хорошая работа. Смотри итог:",
+            "neutral": "Разбор завершён. Итог:",
+        },
     }
     return tone_map.get(key, {}).get(tone, tone_map.get(key, {}).get("warm", ""))
 
@@ -1275,8 +1287,10 @@ async def distortion_pick_action(update: Update, context: ContextTypes.DEFAULT_T
     log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=4)
     log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=5)
 
+    tone = _get_tone(update.effective_user.id) if update.effective_user else "warm"
+    saved_text = _tone_text(tone, "distortion_saved")
     short = f"\nКоротко: {DISTORTION_EXPLAIN[label]}." if label in DISTORTION_EXPLAIN else ""
-    await query.message.reply_text(f"{DISTORTION_SAVED_RU}{short}\n\n{EVIDENCE_FOR_PROMPT_RU}", reply_markup=_flow_keyboard())
+    await query.message.reply_text(f"{saved_text}{short}\n\n{EVIDENCE_FOR_PROMPT_RU}", reply_markup=_flow_keyboard())
     return WAIT_EVIDENCE_FOR
 
 
@@ -1321,8 +1335,10 @@ async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE)
     log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=4)
     log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=5)
 
+    tone = _get_tone(update.effective_user.id) if update.effective_user else "warm"
+    saved_text = _tone_text(tone, "distortion_saved")
     short = f"\nКоротко: {DISTORTION_EXPLAIN[distortion]}." if distortion in DISTORTION_EXPLAIN else ""
-    await update.message.reply_text(f"{DISTORTION_SAVED_RU}{short}\n\n{EVIDENCE_FOR_PROMPT_RU}", reply_markup=_flow_keyboard())
+    await update.message.reply_text(f"{saved_text}{short}\n\n{EVIDENCE_FOR_PROMPT_RU}", reply_markup=_flow_keyboard())
     return WAIT_EVIDENCE_FOR
 
 
@@ -1432,7 +1448,8 @@ async def receive_evidence_against(update: Update, context: ContextTypes.DEFAULT
     log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=6)
     log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=7)
 
-    await update.message.reply_text(EVIDENCE_STEP_DONE_RU)
+    tone = _get_tone(update.effective_user.id) if update.effective_user else "warm"
+    await update.message.reply_text(_tone_text(tone, "evidence_step_done"))
     await update.message.reply_text(ALTERNATIVE_PROMPT_RU, reply_markup=_flow_keyboard())
     await update.message.reply_text(ALTERNATIVE_HINT_PROMPT_RU, reply_markup=_alternative_hint_keyboard())
     return WAIT_ALTERNATIVE_THOUGHT
@@ -1490,8 +1507,10 @@ async def _finalize_with_after_intensity(update: Update, context: ContextTypes.D
     log_event("session_completed", tg_user_id=user_id, meta={"delta": delta, "before": before, "after": after, "variant": variant})
     out_msg = update.message or (update.callback_query.message if update.callback_query else None)
     if out_msg:
+        tone = _get_tone(user_id) if user_id is not None else "warm"
+        preface = _tone_text(tone, "result_preface")
         result_text = _format_result(before=before, after=after, delta=delta, next_step=next_step, anchor=anchor)
-        await out_msg.reply_text(result_text, reply_markup=_result_actions_inline())
+        await out_msg.reply_text(f"{preface}\n\n{result_text}", reply_markup=_result_actions_inline())
 
     context.user_data.pop("draft_entry", None)
     return ConversationHandler.END
