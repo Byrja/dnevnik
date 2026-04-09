@@ -123,6 +123,19 @@ DISTORTION_LABEL_TO_CODE = {
     "Другое": "other",
 }
 
+DISTORTION_EXPLAIN = {
+    "Катастрофизация": "ожидаю самый худший исход как неизбежный",
+    "Чтение мыслей": "уверен, что знаю, что другие думают обо мне",
+    "Черно-белое мышление": "вижу только крайности: либо успех, либо провал",
+    "Обесценивание позитивного": "игнорирую всё хорошее как «не считается»",
+    "Сверхобобщение": "по одному случаю делаю вывод «всегда/никогда»",
+    "Персонализация": "беру на себя лишнюю ответственность за всё вокруг",
+    "Эмоц. обоснование": "если чувствую страх, значит опасность точно реальна",
+    "Долженствование": "жёсткие «я должен/должна», без права на ошибку",
+    "Навешивание ярлыков": "вместо фактов клею общий негативный ярлык",
+    "Предсказание будущего": "уверен, что всё пойдёт плохо заранее",
+}
+
 CODE_TO_DISTORTION_LABEL = {v: k for k, v in DISTORTION_LABEL_TO_CODE.items()}
 
 
@@ -685,7 +698,7 @@ async def _save_intensity_before_and_next(update: Update, context: ContextTypes.
             ["Сверхобобщение", "Персонализация"],
             ["Эмоц. обоснование", "Долженствование"],
             ["Навешивание ярлыков", "Предсказание будущего"],
-            ["Другое"],
+            ["Не уверен", "Другое"],
         ],
         resize_keyboard=True,
         one_time_keyboard=True,
@@ -741,6 +754,16 @@ async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text("Выбери искажение кнопкой или введи текстом.")
         return WAIT_DISTORTION
 
+    if distortion.lower() == "не уверен":
+        await update.message.reply_text(
+            "Ок, помогу выбрать:\n"
+            "• Катастрофизация — ожидаю худший исход\n"
+            "• Чтение мыслей — уверен, что знаю оценку других\n"
+            "• Черно-белое — только «идеально или провал»\n"
+            "Выбери ближайший вариант или нажми «Другое»."
+        )
+        return WAIT_DISTORTION
+
     draft = context.user_data.get("draft_entry", {})
     entry_id = draft.get("entry_id")
     if not entry_id:
@@ -763,6 +786,8 @@ async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data["draft_entry"] = draft
 
     await update.message.reply_text(DISTORTION_SAVED_RU)
+    if distortion in DISTORTION_EXPLAIN:
+        await update.message.reply_text(f"Коротко: {DISTORTION_EXPLAIN[distortion]}.")
     await update.message.reply_text(EVIDENCE_FOR_PROMPT_RU, reply_markup=_flow_keyboard())
     return WAIT_EVIDENCE_FOR
 
