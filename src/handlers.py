@@ -626,6 +626,16 @@ async def show_funnel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     rate_a = (completed_a / started_a * 100) if started_a else 0.0
     rate_b = (completed_b / started_b * 100) if started_b else 0.0
 
+    min_sample = 30
+    winner_line = "Winner: недостаточно данных"
+    if started_a >= min_sample and started_b >= min_sample:
+        if abs(rate_a - rate_b) < 2.0:
+            winner_line = "Winner: паритет (разница < 2 п.п.)"
+        elif rate_a > rate_b:
+            winner_line = f"Winner: A (+{rate_a - rate_b:.1f} п.п.)"
+        else:
+            winner_line = f"Winner: B (+{rate_b - rate_a:.1f} п.п.)"
+
     lines = [
         "📈 Funnel (all users)",
         "───────────────────",
@@ -636,6 +646,7 @@ async def show_funnel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         "A/B Step 1 variants:",
         f"A: {completed_a}/{started_a} ({rate_a:.1f}%)",
         f"B: {completed_b}/{started_b} ({rate_b:.1f}%)",
+        f"{winner_line}",
         "",
         "Step completions:",
     ]
