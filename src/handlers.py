@@ -796,15 +796,18 @@ async def distortion_info_action(update: Update, context: ContextTypes.DEFAULT_T
 
     code = (query.data or "dist_info:back").split(":", 1)[1]
     if code == "back":
-        await query.message.reply_text("Верну к выбору искажения.", reply_markup=_distortion_choice_keyboard())
+        await query.edit_message_text(
+            "Выбери искажение, чтобы посмотреть подробное объяснение:",
+            reply_markup=_distortion_info_keyboard(),
+        )
         return WAIT_DISTORTION
 
     text = DISTORTION_DETAILS.get(code)
     if not text:
-        await query.message.reply_text("Не нашла описание, выбери пункт из списка.")
+        await query.edit_message_text("Не нашла описание, выбери пункт из списка.", reply_markup=_distortion_info_keyboard())
         return WAIT_DISTORTION
 
-    await query.message.reply_text(text, reply_markup=_distortion_detail_keyboard(code))
+    await query.edit_message_text(text, reply_markup=_distortion_detail_keyboard(code))
     return WAIT_DISTORTION
 
 
@@ -836,10 +839,8 @@ async def distortion_pick_action(update: Update, context: ContextTypes.DEFAULT_T
     draft["distortion_code"] = code
     context.user_data["draft_entry"] = draft
 
-    await query.message.reply_text(DISTORTION_SAVED_RU)
-    if label in DISTORTION_EXPLAIN:
-        await query.message.reply_text(f"Коротко: {DISTORTION_EXPLAIN[label]}.")
-    await query.message.reply_text(EVIDENCE_FOR_PROMPT_RU, reply_markup=_flow_keyboard())
+    short = f"\nКоротко: {DISTORTION_EXPLAIN[label]}." if label in DISTORTION_EXPLAIN else ""
+    await query.message.reply_text(f"{DISTORTION_SAVED_RU}{short}\n\n{EVIDENCE_FOR_PROMPT_RU}", reply_markup=_flow_keyboard())
     return WAIT_EVIDENCE_FOR
 
 
@@ -881,10 +882,8 @@ async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE)
     draft["distortion_code"] = distortion_code
     context.user_data["draft_entry"] = draft
 
-    await update.message.reply_text(DISTORTION_SAVED_RU)
-    if distortion in DISTORTION_EXPLAIN:
-        await update.message.reply_text(f"Коротко: {DISTORTION_EXPLAIN[distortion]}.")
-    await update.message.reply_text(EVIDENCE_FOR_PROMPT_RU, reply_markup=_flow_keyboard())
+    short = f"\nКоротко: {DISTORTION_EXPLAIN[distortion]}." if distortion in DISTORTION_EXPLAIN else ""
+    await update.message.reply_text(f"{DISTORTION_SAVED_RU}{short}\n\n{EVIDENCE_FOR_PROMPT_RU}", reply_markup=_flow_keyboard())
     return WAIT_EVIDENCE_FOR
 
 
