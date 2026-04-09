@@ -918,7 +918,7 @@ async def receive_thought_text(update: Update, context: ContextTypes.DEFAULT_TYP
     log_event("step_entered", tg_user_id=update.effective_user.id, step=2)
 
     emotion_keyboard = ReplyKeyboardMarkup(
-        [["Тревога", "Грусть", "Злость"], ["Стыд", "Вина", "Раздражение"], ["Страх", "Пустота", "Другое"]],
+        [["Тревога", "Грусть", "Злость"], ["Стыд", "Вина", "Раздражение"], ["Страх", "Пустота", "Другое"], ["Не могу определиться"]],
         resize_keyboard=True,
         one_time_keyboard=True,
     )
@@ -935,6 +935,15 @@ async def receive_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return await _handle_crisis(update, context, emotion)
     if not emotion:
         await update.message.reply_text("Выбери эмоцию кнопкой или введи текстом.")
+        return WAIT_EMOTION
+    if emotion.lower() == "не могу определиться":
+        await update.message.reply_text(
+            "Попробуй так:\n"
+            "• Тревога — про будущее и неопределённость\n"
+            "• Грусть — про потерю/усталость\n"
+            "• Злость — про нарушение границ/несправедливость\n"
+            "Выбери ближайшую эмоцию (можно не идеально)."
+        )
         return WAIT_EMOTION
 
     draft = context.user_data.get("draft_entry", {})
@@ -1171,6 +1180,8 @@ def _alternative_hint_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton("Что бы я сказал другу?", callback_data="alt_hint:friend")],
             [InlineKeyboardButton("Факты против страха", callback_data="alt_hint:facts")],
             [InlineKeyboardButton("Мягкая реалистичная версия", callback_data="alt_hint:balanced")],
+            [InlineKeyboardButton("Сократить в 1 фразу", callback_data="alt_hint:one_line")],
+            [InlineKeyboardButton("Убрать самокритику", callback_data="alt_hint:self_support")],
             [InlineKeyboardButton("🤖 Помоги переформулировать", callback_data="alt_ai:rewrite")],
         ]
     )
@@ -1182,6 +1193,10 @@ def _alternative_hint_text(kind: str, thought: str) -> str:
         return f"Если бы друг сказал: «{thought}», я бы ответил: «Ты не обязан верить первой тревожной мысли. Давай опираться на факты и на то, что реально в твоём контроле прямо сейчас»."
     if kind == "facts":
         return "Проверь: какие 2–3 факта прямо сейчас не подтверждают худший сценарий? Собери их и сформулируй более точную мысль."
+    if kind == "one_line":
+        return "Короткая версия: «Сейчас непросто, но я справлюсь шаг за шагом»."
+    if kind == "self_support":
+        return "Поддерживающая версия: «Я могу ошибаться и всё равно оставаться ок. Сейчас важен следующий реалистичный шаг»."
     return "Более реалистичная формулировка: «Да, сейчас мне непросто. Но это временно, и у меня есть шаги, которые помогут стабилизироваться»."
 
 
