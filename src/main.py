@@ -90,7 +90,7 @@ def build_app(token: str) -> Application:
         states={
             WAIT_THOUGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_thought_text)],
             WAIT_EMOTION: [
-                CallbackQueryHandler(emotion_hint_action, pattern=r"^emohelp:(anxiety|sadness|anger|other|back)$"),
+                CallbackQueryHandler(emotion_hint_action, pattern=r"^emohelp:(anxiety|sadness|anger|other|back|future|loss|boundary)$"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, receive_emotion),
             ],
             WAIT_INTENSITY_BEFORE: [

@@ -285,6 +285,9 @@ def _emotion_choice_keyboard() -> ReplyKeyboardMarkup:
 def _emotion_hint_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
+            [InlineKeyboardButton("🔮 Больше про будущее", callback_data="emohelp:future")],
+            [InlineKeyboardButton("🕳️ Больше про потерю/усталость", callback_data="emohelp:loss")],
+            [InlineKeyboardButton("🧱 Больше про границы/несправедливость", callback_data="emohelp:boundary")],
             [InlineKeyboardButton("😰 Тревога", callback_data="emohelp:anxiety"), InlineKeyboardButton("😔 Грусть", callback_data="emohelp:sadness")],
             [InlineKeyboardButton("😠 Злость", callback_data="emohelp:anger"), InlineKeyboardButton("😶 Другое", callback_data="emohelp:other")],
             [InlineKeyboardButton("⬅️ Назад к списку эмоций", callback_data="emohelp:back")],
@@ -997,11 +1000,9 @@ async def receive_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return WAIT_EMOTION
     if emotion.lower() == "не могу определиться":
         await update.message.reply_text(
-            "Ок, давай быстро сузим выбор:\n"
-            "• 😰 Тревога — про будущее и неопределённость\n"
-            "• 😔 Грусть — про потерю/усталость\n"
-            "• 😠 Злость — про границы и несправедливость\n"
-            "Нажми ближайший вариант ниже.",
+            "Ок, давай определим точнее в 1 тап:\n"
+            "1) Что сейчас ближе по смыслу? (будущее / потеря / границы)\n"
+            "2) Если не подходит — выбери эмоцию напрямую ниже.",
             reply_markup=_emotion_hint_keyboard(),
         )
         return WAIT_EMOTION
@@ -1019,6 +1020,39 @@ async def emotion_hint_action(update: Update, context: ContextTypes.DEFAULT_TYPE
     if action == "back":
         await query.edit_message_text("Выбери эмоцию из списка.")
         await query.message.reply_text(EMOTION_PROMPT_RU, reply_markup=_emotion_choice_keyboard())
+        return WAIT_EMOTION
+
+    if action == "future":
+        await query.edit_message_text(
+            "Если главное — страх перед будущим/неопределённостью, обычно это ближе к тревоге.\n"
+            "Выбрать «Тревога»?",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Да, тревога", callback_data="emohelp:anxiety")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="emohelp:back")],
+            ]),
+        )
+        return WAIT_EMOTION
+
+    if action == "loss":
+        await query.edit_message_text(
+            "Если больше про потерю сил/смысла или ощущение пустоты, обычно это ближе к грусти.\n"
+            "Выбрать «Грусть»?",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Да, грусть", callback_data="emohelp:sadness")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="emohelp:back")],
+            ]),
+        )
+        return WAIT_EMOTION
+
+    if action == "boundary":
+        await query.edit_message_text(
+            "Если главное — нарушение границ/несправедливость, обычно это ближе к злости.\n"
+            "Выбрать «Злость»?",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Да, злость", callback_data="emohelp:anger")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="emohelp:back")],
+            ]),
+        )
         return WAIT_EMOTION
 
     mapping = {
