@@ -86,6 +86,9 @@ python -m unittest tests/test_callback_routes.py
 ```
 Обновляет `RELEASE_GATE_STATUS_2026-04-09.md` по результатам автопроверок.
 
+Перед любыми UI-правками обязательно сверяться с:
+- `UI_COPY_LOCK.md`
+
 ### Деплой (production)
 ```bash
 # На сервере
