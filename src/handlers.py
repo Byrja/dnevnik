@@ -18,7 +18,6 @@ from texts import (
     ALTERNATIVE_HINT_PROMPT_RU,
     ALTERNATIVE_PROMPT_RU,
     CANCEL_HINT_RU,
-    CARD_DONE_TEMPLATE_RU,
     CRISIS_SUPPORT_RU,
     DISCLAIMER_RU,
     DISTORTION_PROMPT_RU,
@@ -204,13 +203,6 @@ async def _handle_crisis(update: Update, context: ContextTypes.DEFAULT_TYPE, sou
     if update.message:
         await update.message.reply_text(CRISIS_SUPPORT_RU)
     return ConversationHandler.END
-
-
-def _main_menu_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        [["🎯 Новая мысль", "📜 История"], ["⚙️ Настройки"]],
-        resize_keyboard=True,
-    )
 
 
 def _main_menu_inline() -> InlineKeyboardMarkup:

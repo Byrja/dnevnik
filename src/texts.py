@@ -7,7 +7,6 @@ PROGRESS_BAR_EMPTY = "░"
 INTENSITY_SCALE = "0 · 25 · 50 · 75 · 100"
 
 # Emojis for better visual hierarchy
-EMOJI_STEP = "👣"
 EMOJI_EMOTION = "💭"
 EMOJI_THINK = "💡"
 EMOJI_FACT = "📋"
@@ -21,7 +20,6 @@ EMOJI_HISTORY = "📜"
 EMOJI_SETTINGS = "⚙️"
 EMOJI_SMILEY = "😊"
 EMOJI_STAR = "⭐"
-EMOJI_FIRE = "🔥"
 EMOJI_HELP = "❓"
 
 # ============================================================
@@ -289,8 +287,6 @@ def _format_result(before: int, after: int, delta: int, next_step: str, anchor: 
         "🧷 Якорь на день:\n"
         f"{anchor}"
     )
-
-CARD_DONE_TEMPLATE_RU = "✅ Карточка завершена.\nДо: {before}/100\nПосле: {after}/100\nΔ: {delta}\n\nСледующий шаг: {next_step}"
 
 HISTORY_EMPTY_RU = (
     f"{EMOJI_HISTORY} История пуста\n"
