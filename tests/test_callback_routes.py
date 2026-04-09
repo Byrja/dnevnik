@@ -19,7 +19,8 @@ class CallbackRoutesTests(unittest.TestCase):
 
     def test_menu_callback_routes_exist(self) -> None:
         src = main_py()
-        self.assertIn("menu:(history|stats|settings|help)", src)
+        self.assertIn("menu:(history|stats|settings|help|home)", src)
+        self.assertIn("followup:(3h)", src)
 
     def test_distortion_callback_routes_exist(self) -> None:
         src = main_py()

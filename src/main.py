@@ -32,6 +32,7 @@ from handlers import (
     receive_thought_text,
     send_daily_nudges,
     send_session_timeout_nudges,
+    set_followup_reminder,
     set_reminders,
     set_tone,
     show_help,
@@ -61,7 +62,8 @@ def build_app(token: str) -> Application:
     app.add_handler(CallbackQueryHandler(consent_accept, pattern="^consent_accept$"))
     app.add_handler(CallbackQueryHandler(set_tone, pattern=r"^tone:(warm|neutral)$"))
     app.add_handler(CallbackQueryHandler(apply_alternative_hint, pattern=r"^alt_hint:(friend|facts|balanced)$|^alt_ai:(rewrite|back)$"))
-    app.add_handler(CallbackQueryHandler(main_menu_action, pattern=r"^menu:(history|stats|settings|help)$"))
+    app.add_handler(CallbackQueryHandler(main_menu_action, pattern=r"^menu:(history|stats|settings|help|home)$"))
+    app.add_handler(CallbackQueryHandler(set_followup_reminder, pattern=r"^followup:(3h)$"))
     app.add_handler(CommandHandler("history", show_history))
     app.add_handler(CommandHandler("export", export_progress))
     app.add_handler(MessageHandler(filters.Regex(r"^История$"), show_history))

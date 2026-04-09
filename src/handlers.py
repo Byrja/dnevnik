@@ -221,6 +221,13 @@ def _main_menu_inline() -> InlineKeyboardMarkup:
     ])
 
 
+def _result_actions_inline() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("⏰ Напомнить через 3 часа", callback_data="followup:3h")],
+        [InlineKeyboardButton("🏠 В меню", callback_data="menu:home")],
+    ])
+
+
 def _distortion_choice_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
@@ -402,6 +409,8 @@ async def main_menu_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await show_settings(update, context)
     elif action == "help":
         await show_help(update, context)
+    elif action == "home":
+        await query.edit_message_text(MENU_RU, reply_markup=_main_menu_inline())
 
 
 async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -494,6 +503,36 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.callback_query.edit_message_text(stats_text)
     else:
         await msg.reply_text(stats_text)
+
+
+async def set_followup_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+
+    hours = 3
+    try:
+        raw = (query.data or "followup:3h").split(":", 1)[1]
+        if raw.endswith("h") and raw[:-1].isdigit():
+            hours = max(1, min(24, int(raw[:-1])))
+    except Exception:
+        hours = 3
+
+    if context.job_queue and query.message:
+        chat_id = query.message.chat_id
+        async def _send_followup(ctx: ContextTypes.DEFAULT_TYPE) -> None:
+            await ctx.bot.send_message(
+                chat_id=chat_id,
+                text="Мягкое напоминание: вернись к мысли и проверь, как ты сейчас. Если нужно — сделай короткий повтор карточки.",
+            )
+
+        context.job_queue.run_once(_send_followup, when=hours * 3600)
+
+    await query.edit_message_text(
+        f"Ок, напомню через {hours} ч.",
+        reply_markup=_main_menu_inline(),
+    )
 
 
 async def set_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1046,7 +1085,7 @@ async def _finalize_with_after_intensity(update: Update, context: ContextTypes.D
     anchor = _anchor_phrase(after=after, delta=delta)
     if update.message:
         result_text = _format_result(before=before, after=after, delta=delta, next_step=next_step, anchor=anchor)
-        await update.message.reply_text(result_text, reply_markup=_main_menu_inline())
+        await update.message.reply_text(result_text, reply_markup=_result_actions_inline())
 
     context.user_data.pop("draft_entry", None)
     return ConversationHandler.END
