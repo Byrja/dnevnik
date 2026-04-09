@@ -1,10 +1,11 @@
 # RELEASE GATE STATUS — 2026-04-09
 
-Updated: 2026-04-09 09:10:55 UTC
+Updated: 2026-04-09 09:14:00 UTC
 
 ## Automated checks
 - [x] `python -m py_compile src/*.py`
 - [x] `python -m unittest tests/test_callback_routes.py`
+- [x] `systemctl --user is-active cbt-clarity.service` = active
 
 ## Manual smoke checks
 - [ ] /start single menu card
