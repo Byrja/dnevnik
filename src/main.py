@@ -21,6 +21,7 @@ from handlers import (
     consent_accept,
     distortion_info_action,
     distortion_pick_action,
+    emotion_hint_action,
     export_progress,
     go_menu,
     main_menu_action,
@@ -88,7 +89,10 @@ def build_app(token: str) -> Application:
         ],
         states={
             WAIT_THOUGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_thought_text)],
-            WAIT_EMOTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_emotion)],
+            WAIT_EMOTION: [
+                CallbackQueryHandler(emotion_hint_action, pattern=r"^emohelp:(anxiety|sadness|anger|other|back)$"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_emotion),
+            ],
             WAIT_INTENSITY_BEFORE: [
                 CallbackQueryHandler(choose_intensity_before, pattern=r"^int_before:(20|40|60|80|100)$"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, receive_intensity_before)

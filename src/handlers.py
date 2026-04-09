@@ -274,6 +274,24 @@ def _admin_ab_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
+def _emotion_choice_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [["Тревога", "Грусть", "Злость"], ["Стыд", "Вина", "Раздражение"], ["Страх", "Пустота", "Другое"], ["Не могу определиться"]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
+
+def _emotion_hint_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("😰 Тревога", callback_data="emohelp:anxiety"), InlineKeyboardButton("😔 Грусть", callback_data="emohelp:sadness")],
+            [InlineKeyboardButton("😠 Злость", callback_data="emohelp:anger"), InlineKeyboardButton("😶 Другое", callback_data="emohelp:other")],
+            [InlineKeyboardButton("⬅️ Назад к списку эмоций", callback_data="emohelp:back")],
+        ]
+    )
+
+
 def _distortion_choice_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
@@ -948,14 +966,24 @@ async def receive_thought_text(update: Update, context: ContextTypes.DEFAULT_TYP
     log_event("step_completed", tg_user_id=update.effective_user.id, step=1)
     log_event("step_entered", tg_user_id=update.effective_user.id, step=2)
 
-    emotion_keyboard = ReplyKeyboardMarkup(
-        [["Тревога", "Грусть", "Злость"], ["Стыд", "Вина", "Раздражение"], ["Страх", "Пустота", "Другое"], ["Не могу определиться"]],
-        resize_keyboard=True,
-        one_time_keyboard=True,
-    )
+    emotion_keyboard = _emotion_choice_keyboard()
     tone = _get_tone(update.effective_user.id)
     await update.message.reply_text(f"{_tone_text(tone, 'thought_saved')}\n\n{EMOTION_PROMPT_RU}", reply_markup=emotion_keyboard)
     return WAIT_EMOTION
+
+
+async def _save_emotion_and_next(update: Update, context: ContextTypes.DEFAULT_TYPE, emotion: str, out_msg) -> int:
+    draft = context.user_data.get("draft_entry", {})
+    draft["emotion_label"] = emotion
+    context.user_data["draft_entry"] = draft
+
+    log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=2)
+    log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=3)
+
+    await out_msg.reply_text(EMOTION_SAVED_RU)
+    await out_msg.reply_text(INTENSITY_PROMPT_RU, reply_markup=_flow_keyboard())
+    await out_msg.reply_text("Быстрый выбор:", reply_markup=_intensity_quick_keyboard("before"))
+    return WAIT_INTENSITY_BEFORE
 
 
 async def receive_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -969,25 +997,43 @@ async def receive_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return WAIT_EMOTION
     if emotion.lower() == "не могу определиться":
         await update.message.reply_text(
-            "Попробуй так:\n"
-            "• Тревога — про будущее и неопределённость\n"
-            "• Грусть — про потерю/усталость\n"
-            "• Злость — про нарушение границ/несправедливость\n"
-            "Выбери ближайшую эмоцию (можно не идеально)."
+            "Ок, давай быстро сузим выбор:\n"
+            "• 😰 Тревога — про будущее и неопределённость\n"
+            "• 😔 Грусть — про потерю/усталость\n"
+            "• 😠 Злость — про границы и несправедливость\n"
+            "Нажми ближайший вариант ниже.",
+            reply_markup=_emotion_hint_keyboard(),
         )
         return WAIT_EMOTION
 
-    draft = context.user_data.get("draft_entry", {})
-    draft["emotion_label"] = emotion
-    context.user_data["draft_entry"] = draft
+    return await _save_emotion_and_next(update, context, emotion, update.message)
 
-    log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=2)
-    log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=3)
 
-    await update.message.reply_text(EMOTION_SAVED_RU)
-    await update.message.reply_text(INTENSITY_PROMPT_RU, reply_markup=_flow_keyboard())
-    await update.message.reply_text("Быстрый выбор:", reply_markup=_intensity_quick_keyboard("before"))
-    return WAIT_INTENSITY_BEFORE
+async def emotion_hint_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    if not query:
+        return WAIT_EMOTION
+    await query.answer()
+
+    action = (query.data or "emohelp:back").split(":", 1)[1]
+    if action == "back":
+        await query.edit_message_text("Выбери эмоцию из списка.")
+        await query.message.reply_text(EMOTION_PROMPT_RU, reply_markup=_emotion_choice_keyboard())
+        return WAIT_EMOTION
+
+    mapping = {
+        "anxiety": "Тревога",
+        "sadness": "Грусть",
+        "anger": "Злость",
+        "other": "Другое",
+    }
+    emotion = mapping.get(action)
+    if not emotion:
+        await query.edit_message_text("Не поняла выбор. Попробуй ещё раз.", reply_markup=_emotion_hint_keyboard())
+        return WAIT_EMOTION
+
+    await query.edit_message_text(f"Выбрано: {emotion}")
+    return await _save_emotion_and_next(update, context, emotion, query.message)
 
 
 async def _save_intensity_before_and_next(update: Update, context: ContextTypes.DEFAULT_TYPE, value: int, msg) -> int:

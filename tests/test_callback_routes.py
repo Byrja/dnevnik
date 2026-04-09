@@ -21,6 +21,7 @@ class CallbackRoutesTests(unittest.TestCase):
         src = main_py()
         self.assertIn("menu:(history|stats|settings|help|home)", src)
         self.assertIn("followup:(3h)", src)
+        self.assertIn("emohelp:(anxiety|sadness|anger|other|back)", src)
 
     def test_funnel_command_registered(self) -> None:
         src = main_py()

@@ -201,6 +201,29 @@ class FlowHappyPathTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(any("Отправь свою альтернативную мысль" in a["text"] for a in cb_msg.answers))
 
+    async def test_emotion_uncertain_flow_has_back_and_pick(self) -> None:
+        user = FakeUser()
+        ctx = FakeContext()
+
+        await handlers.new_thought_entry(FakeUpdate(user, "/new"), ctx)
+        await handlers.receive_thought_text(FakeUpdate(user, "Мне тревожно"), ctx)
+
+        state = await handlers.receive_emotion(FakeUpdate(user, "Не могу определиться"), ctx)
+        self.assertEqual(state, handlers.WAIT_EMOTION)
+
+        cb_msg = FakeMessage(user, "")
+        state = await handlers.emotion_hint_action(
+            FakeUpdate(user, callback_data="emohelp:back", callback_message=cb_msg),
+            ctx,
+        )
+        self.assertEqual(state, handlers.WAIT_EMOTION)
+
+        state = await handlers.emotion_hint_action(
+            FakeUpdate(user, callback_data="emohelp:anxiety", callback_message=cb_msg),
+            ctx,
+        )
+        self.assertEqual(state, handlers.WAIT_INTENSITY_BEFORE)
+
 
 if __name__ == "__main__":
     unittest.main()
