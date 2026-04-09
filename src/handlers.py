@@ -264,6 +264,15 @@ def _result_actions_inline() -> InlineKeyboardMarkup:
     ])
 
 
+def _admin_ab_keyboard() -> InlineKeyboardMarkup:
+    mode = _get_ab_mode()
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(f"A/B test {'✅' if mode == 'test' else ''}", callback_data="adminab:test")],
+        [InlineKeyboardButton(f"Force A {'✅' if mode == 'a' else ''}", callback_data="adminab:a"), InlineKeyboardButton(f"Force B {'✅' if mode == 'b' else ''}", callback_data="adminab:b")],
+        [InlineKeyboardButton("🔄 Обновить", callback_data="adminab:status")],
+    ])
+
+
 def _distortion_choice_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
@@ -551,14 +560,30 @@ async def admin_ab_mode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     arg = (context.args[0].lower().strip() if context.args else "status")
     if arg in {"status", "show"}:
-        await update.message.reply_text(f"A/B mode: {_get_ab_mode()}")
+        await update.message.reply_text(f"A/B mode: {_get_ab_mode()}", reply_markup=_admin_ab_keyboard())
         return
     if arg in {"test", "a", "b"}:
         _set_ab_mode(arg)
-        await update.message.reply_text(f"A/B mode updated: {arg}")
+        await update.message.reply_text(f"A/B mode updated: {arg}", reply_markup=_admin_ab_keyboard())
         return
 
-    await update.message.reply_text("Используй: /admin_ab status|test|a|b")
+    await update.message.reply_text("Используй: /admin_ab status|test|a|b", reply_markup=_admin_ab_keyboard())
+
+
+async def admin_ab_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query or not update.effective_user:
+        return
+    if update.effective_user.id != OWNER_TG_ID:
+        await query.answer("Только для владельца", show_alert=True)
+        return
+
+    await query.answer()
+    action = (query.data or "adminab:status").split(":", 1)[1]
+    if action in {"test", "a", "b"}:
+        _set_ab_mode(action)
+
+    await query.edit_message_text(f"A/B mode: {_get_ab_mode()}", reply_markup=_admin_ab_keyboard())
 
 
 async def show_funnel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
