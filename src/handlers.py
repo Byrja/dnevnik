@@ -334,6 +334,16 @@ async def _send_main_menu(msg) -> None:
     await msg.reply_text(MENU_RU, reply_markup=_main_menu_inline())
 
 
+async def go_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    msg = update.message or (update.callback_query.message if update.callback_query else None)
+    if not msg:
+        return
+    if update.callback_query:
+        await update.callback_query.edit_message_text(MENU_RU, reply_markup=_main_menu_inline())
+    else:
+        await _send_main_menu(msg)
+
+
 async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.message:
         context.user_data.pop("draft_entry", None)
@@ -420,7 +430,10 @@ async def set_tone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     conn.close()
 
     label = "тёплый" if tone == "warm" else "нейтральный"
-    await query.edit_message_text(SETTINGS_SAVED_TEMPLATE_RU.format(tone_label=label))
+    await query.edit_message_text(
+        SETTINGS_SAVED_TEMPLATE_RU.format(tone_label=label),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 В меню", callback_data="menu:home")]]),
+    )
 
 
 async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

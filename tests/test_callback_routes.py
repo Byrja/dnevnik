@@ -31,6 +31,10 @@ class CallbackRoutesTests(unittest.TestCase):
         self.assertIn('CommandHandler("admin_ab", admin_ab_mode)', src)
         self.assertIn('CallbackQueryHandler(admin_ab_action, pattern=r"^adminab:(status|test|a|b)$")', src)
 
+    def test_global_menu_text_handler_registered(self) -> None:
+        src = main_py()
+        self.assertIn('MessageHandler(filters.Regex(r"^В меню$"), go_menu)', src)
+
     def test_distortion_callback_routes_exist(self) -> None:
         src = main_py()
         self.assertIn("dist_info:(back|catastrophizing|mind_reading|black_white|discounting_positive|overgeneralization|personalization|emotional_reasoning|should_statements|labeling|fortune_telling|other)", src)

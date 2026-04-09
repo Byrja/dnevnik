@@ -22,6 +22,7 @@ from handlers import (
     distortion_info_action,
     distortion_pick_action,
     export_progress,
+    go_menu,
     main_menu_action,
     new_thought_entry,
     receive_alternative_thought,
@@ -77,6 +78,7 @@ def build_app(token: str) -> Application:
     app.add_handler(CommandHandler("onboarding", show_onboarding))
     app.add_handler(CommandHandler("reminders", set_reminders))
     app.add_handler(MessageHandler(filters.Regex(r"^Настройки$"), show_settings))
+    app.add_handler(MessageHandler(filters.Regex(r"^В меню$"), go_menu))
 
     thought_flow = ConversationHandler(
         entry_points=[
