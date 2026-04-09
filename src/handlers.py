@@ -48,6 +48,7 @@ from texts import (
     STATS_EMPTY_RU,
     STATS_RU,
     THOUGHT_PROMPT_RU,
+    THOUGHT_PROMPT_RU_B,
     THOUGHT_SAVED_RU,
     _format_result,
 )
@@ -107,6 +108,16 @@ def _tone_text(tone: str, key: str) -> str:
         },
     }
     return tone_map.get(key, {}).get(tone, tone_map.get(key, {}).get("warm", ""))
+
+
+def _ab_prompt_variant(user_id: int) -> str:
+    return "B" if user_id % 2 == 0 else "A"
+
+
+def _thought_prompt_for_user(user_id: int, tone: str) -> str:
+    if tone == "neutral":
+        return "Введите исходную мысль (1–2 предложения)."
+    return THOUGHT_PROMPT_RU_B if _ab_prompt_variant(user_id) == "B" else THOUGHT_PROMPT_RU
 
 
 DISTORTION_LABEL_TO_CODE = {
@@ -757,10 +768,13 @@ async def new_thought_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     msg = update.message or (update.callback_query.message if update.callback_query else None)
     if not msg or not update.effective_user:
         return ConversationHandler.END
-    log_event("session_started", tg_user_id=update.effective_user.id, step=1)
-    log_event("step_entered", tg_user_id=update.effective_user.id, step=1)
-    tone = _get_tone(update.effective_user.id)
-    await msg.reply_text(f"{_tone_text(tone, 'thought_prompt')}\n\n{CANCEL_HINT_RU}", reply_markup=_flow_keyboard())
+    user_id = update.effective_user.id
+    variant = _ab_prompt_variant(user_id)
+    log_event("session_started", tg_user_id=user_id, step=1, meta={"variant": variant})
+    log_event("step_entered", tg_user_id=user_id, step=1, meta={"variant": variant})
+    tone = _get_tone(user_id)
+    prompt = _thought_prompt_for_user(user_id, tone)
+    await msg.reply_text(f"{prompt}\n\n{CANCEL_HINT_RU}", reply_markup=_flow_keyboard())
     return WAIT_THOUGHT
 
 
