@@ -2,6 +2,7 @@ import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
 from telegram.ext import ContextTypes, ConversationHandler
 
+from analytics import log_event
 from db import get_conn
 from logger import log_error, log_update
 from state import (
@@ -295,6 +296,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     if _user_exists(user.id):
+        log_event("menu_opened", tg_user_id=user.id)
         await _send_main_menu(update.message)
         return
 
@@ -524,6 +526,8 @@ async def set_followup_reminder(update: Update, context: ContextTypes.DEFAULT_TY
 
         context.job_queue.run_once(_send_followup, when=hours * 3600)
 
+    log_event("followup_scheduled", tg_user_id=update.effective_user.id if update.effective_user else None, meta={"hours": hours})
+
     await query.edit_message_text(
         f"Ок, напомню через {hours} ч.",
         reply_markup=_main_menu_inline(),
@@ -708,6 +712,8 @@ async def new_thought_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     msg = update.message or (update.callback_query.message if update.callback_query else None)
     if not msg or not update.effective_user:
         return ConversationHandler.END
+    log_event("session_started", tg_user_id=update.effective_user.id, step=1)
+    log_event("step_entered", tg_user_id=update.effective_user.id, step=1)
     tone = _get_tone(update.effective_user.id)
     await msg.reply_text(f"{_tone_text(tone, 'thought_prompt')}\n\n{CANCEL_HINT_RU}", reply_markup=_flow_keyboard())
     return WAIT_THOUGHT
@@ -731,6 +737,8 @@ async def receive_thought_text(update: Update, context: ContextTypes.DEFAULT_TYP
         "tg_user_id": update.effective_user.id,
         "thought_text": thought_text,
     }
+    log_event("step_completed", tg_user_id=update.effective_user.id, step=1)
+    log_event("step_entered", tg_user_id=update.effective_user.id, step=2)
 
     emotion_keyboard = ReplyKeyboardMarkup(
         [["Тревога", "Грусть", "Злость"], ["Стыд", "Вина", "Раздражение"], ["Страх", "Пустота", "Другое"]],
@@ -755,6 +763,9 @@ async def receive_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     draft = context.user_data.get("draft_entry", {})
     draft["emotion_label"] = emotion
     context.user_data["draft_entry"] = draft
+
+    log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=2)
+    log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=3)
 
     await update.message.reply_text(EMOTION_SAVED_RU)
     await update.message.reply_text(INTENSITY_PROMPT_RU, reply_markup=_flow_keyboard())
@@ -791,6 +802,9 @@ async def _save_intensity_before_and_next(update: Update, context: ContextTypes.
 
     draft["entry_id"] = entry_id
     context.user_data["draft_entry"] = draft
+
+    log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=3)
+    log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=4)
 
     await msg.reply_text(EMOTION_STEP_DONE_RU)
     await msg.reply_text(DISTORTION_PROMPT_RU, reply_markup=_distortion_choice_keyboard())
@@ -884,6 +898,9 @@ async def distortion_pick_action(update: Update, context: ContextTypes.DEFAULT_T
     draft["distortion_code"] = code
     context.user_data["draft_entry"] = draft
 
+    log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=4)
+    log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=5)
+
     short = f"\nКоротко: {DISTORTION_EXPLAIN[label]}." if label in DISTORTION_EXPLAIN else ""
     await query.message.reply_text(f"{DISTORTION_SAVED_RU}{short}\n\n{EVIDENCE_FOR_PROMPT_RU}", reply_markup=_flow_keyboard())
     return WAIT_EVIDENCE_FOR
@@ -927,6 +944,9 @@ async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE)
     draft["distortion_code"] = distortion_code
     context.user_data["draft_entry"] = draft
 
+    log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=4)
+    log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=5)
+
     short = f"\nКоротко: {DISTORTION_EXPLAIN[distortion]}." if distortion in DISTORTION_EXPLAIN else ""
     await update.message.reply_text(f"{DISTORTION_SAVED_RU}{short}\n\n{EVIDENCE_FOR_PROMPT_RU}", reply_markup=_flow_keyboard())
     return WAIT_EVIDENCE_FOR
@@ -960,6 +980,9 @@ async def receive_evidence_for(update: Update, context: ContextTypes.DEFAULT_TYP
 
     draft["evidence_for"] = evidence_for
     context.user_data["draft_entry"] = draft
+
+    log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=5)
+    log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=6)
 
     await update.message.reply_text(EVIDENCE_AGAINST_PROMPT_RU, reply_markup=_flow_keyboard())
     return WAIT_EVIDENCE_AGAINST
@@ -1026,6 +1049,9 @@ async def receive_evidence_against(update: Update, context: ContextTypes.DEFAULT
     draft["evidence_against"] = evidence_against
     context.user_data["draft_entry"] = draft
 
+    log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=6)
+    log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=7)
+
     await update.message.reply_text(EVIDENCE_STEP_DONE_RU)
     await update.message.reply_text(ALTERNATIVE_PROMPT_RU, reply_markup=_flow_keyboard())
     await update.message.reply_text(ALTERNATIVE_HINT_PROMPT_RU, reply_markup=_alternative_hint_keyboard())
@@ -1078,6 +1104,8 @@ async def _finalize_with_after_intensity(update: Update, context: ContextTypes.D
     delta = before - after
     next_step = _next_step_recommendation(delta=delta, after=after, distortion=distortion)
     anchor = _anchor_phrase(after=after, delta=delta)
+    log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=8)
+    log_event("session_completed", tg_user_id=update.effective_user.id if update.effective_user else None, meta={"delta": delta, "before": before, "after": after})
     if update.message:
         result_text = _format_result(before=before, after=after, delta=delta, next_step=next_step, anchor=anchor)
         await update.message.reply_text(result_text, reply_markup=_result_actions_inline())
@@ -1118,6 +1146,9 @@ async def receive_alternative_thought(update: Update, context: ContextTypes.DEFA
 
     draft["alternative_thought"] = alt
     context.user_data["draft_entry"] = draft
+
+    log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=7)
+    log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=8)
 
     await update.message.reply_text(INTENSITY_AFTER_PROMPT_RU, reply_markup=_intensity_quick_keyboard("after"))
     return WAIT_INTENSITY_AFTER
