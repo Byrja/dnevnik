@@ -18,6 +18,7 @@ from handlers import (
     choose_intensity_before,
     consent_accept,
     distortion_info_action,
+    distortion_pick_action,
     export_progress,
     main_menu_action,
     new_thought_entry,
@@ -84,6 +85,7 @@ def build_app(token: str) -> Application:
             ],
             WAIT_DISTORTION: [
                 CallbackQueryHandler(distortion_info_action, pattern=r"^dist_info:(back|catastrophizing|mind_reading|black_white|discounting_positive|overgeneralization|personalization|emotional_reasoning|should_statements|labeling|fortune_telling|other)$"),
+                CallbackQueryHandler(distortion_pick_action, pattern=r"^dist_pick:(catastrophizing|mind_reading|black_white|discounting_positive|overgeneralization|personalization|emotional_reasoning|should_statements|labeling|fortune_telling|other)$"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, receive_distortion),
             ],
             WAIT_EVIDENCE_FOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_evidence_for)],

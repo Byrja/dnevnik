@@ -263,6 +263,15 @@ def _distortion_info_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
+def _distortion_detail_keyboard(code: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("✅ Выбрать это искажение", callback_data=f"dist_pick:{code}")],
+            [InlineKeyboardButton("⬅️ Назад к выбору", callback_data="dist_info:back")],
+        ]
+    )
+
+
 def _intensity_quick_keyboard(kind: str) -> InlineKeyboardMarkup:
     prefix = "int_before" if kind == "before" else "int_after"
     values = [20, 40, 60, 80, 100]
@@ -795,8 +804,43 @@ async def distortion_info_action(update: Update, context: ContextTypes.DEFAULT_T
         await query.message.reply_text("Не нашла описание, выбери пункт из списка.")
         return WAIT_DISTORTION
 
-    await query.message.reply_text(text, reply_markup=_distortion_info_keyboard())
+    await query.message.reply_text(text, reply_markup=_distortion_detail_keyboard(code))
     return WAIT_DISTORTION
+
+
+async def distortion_pick_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    if not query:
+        return WAIT_DISTORTION
+    await query.answer()
+
+    code = (query.data or "dist_pick:other").split(":", 1)[1]
+    label = CODE_TO_DISTORTION_LABEL.get(code, "Другое")
+
+    draft = context.user_data.get("draft_entry", {})
+    entry_id = draft.get("entry_id")
+    if not entry_id:
+        await query.message.reply_text("Не нашла активную запись. Нажми «Новая мысль» и начни заново.")
+        return ConversationHandler.END
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE entries SET distortion = ?, distortion_code = ? WHERE id = ?",
+        (label, code, entry_id),
+    )
+    conn.commit()
+    conn.close()
+
+    draft["distortion"] = label
+    draft["distortion_code"] = code
+    context.user_data["draft_entry"] = draft
+
+    await query.message.reply_text(DISTORTION_SAVED_RU)
+    if label in DISTORTION_EXPLAIN:
+        await query.message.reply_text(f"Коротко: {DISTORTION_EXPLAIN[label]}.")
+    await query.message.reply_text(EVIDENCE_FOR_PROMPT_RU, reply_markup=_flow_keyboard())
+    return WAIT_EVIDENCE_FOR
 
 
 async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
