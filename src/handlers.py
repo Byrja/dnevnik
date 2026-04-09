@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
 from telegram.ext import ContextTypes, ConversationHandler
 
@@ -330,8 +331,36 @@ def _intensity_quick_keyboard(kind: str) -> InlineKeyboardMarkup:
     )
 
 
+def _menu_intro_text_for_user(tg_user_id: int | None) -> str:
+    hour = datetime.utcnow().hour
+    if 5 <= hour < 12:
+        greet = "Доброе утро"
+    elif 12 <= hour < 18:
+        greet = "Добрый день"
+    elif 18 <= hour < 23:
+        greet = "Добрый вечер"
+    else:
+        greet = "Привет"
+
+    completed = 0
+    if tg_user_id is not None:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM entries WHERE tg_user_id = ? AND is_completed = 1", (tg_user_id,))
+        completed = int(cur.fetchone()[0] or 0)
+        conn.close()
+
+    if completed == 0:
+        suffix = "Начнём первый разбор — займет 3–7 минут."
+    else:
+        suffix = f"У тебя уже {completed} завершён(ых) карточек. Продолжим в том же ритме."
+
+    return f"🧠 Clarity CBT\n{greet}. {suffix}\n\nВыбери действие:"
+
+
 async def _send_main_menu(msg) -> None:
-    await msg.reply_text(MENU_RU, reply_markup=_main_menu_inline())
+    user_id = msg.from_user.id if getattr(msg, 'from_user', None) else None
+    await msg.reply_text(_menu_intro_text_for_user(user_id), reply_markup=_main_menu_inline())
 
 
 async def go_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -339,7 +368,8 @@ async def go_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not msg:
         return
     if update.callback_query:
-        await update.callback_query.edit_message_text(MENU_RU, reply_markup=_main_menu_inline())
+        uid = update.effective_user.id if update.effective_user else None
+        await update.callback_query.edit_message_text(_menu_intro_text_for_user(uid), reply_markup=_main_menu_inline())
     else:
         await _send_main_menu(msg)
 
@@ -469,7 +499,8 @@ async def main_menu_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     elif action == "help":
         await show_help(update, context)
     elif action == "home":
-        await query.edit_message_text(MENU_RU, reply_markup=_main_menu_inline())
+        uid = update.effective_user.id if update.effective_user else None
+        await query.edit_message_text(_menu_intro_text_for_user(uid), reply_markup=_main_menu_inline())
 
 
 async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
