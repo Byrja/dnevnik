@@ -12,6 +12,10 @@ class CallbackRoutesTests(unittest.TestCase):
         src = main_py()
         self.assertRegex(src, r"CallbackQueryHandler\(new_thought_entry, pattern=r\"\^menu:new\$\"\)")
 
+    def test_menu_callback_routes_exist(self) -> None:
+        src = main_py()
+        self.assertIn("menu:(history|stats|settings|help)", src)
+
     def test_distortion_callback_routes_exist(self) -> None:
         src = main_py()
         self.assertIn("dist_info:", src)
