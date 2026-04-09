@@ -1928,31 +1928,47 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await msg.reply_text(HISTORY_EMPTY_RU)
         return
 
-    lines = [f"📜 История (последние {len(rows)} карточек)\n━━━━━━━━━━━━━━━"]
+    deltas = []
+    emo_counts: dict[str, int] = {}
+    dist_counts: dict[str, int] = {}
+
+    for r in rows:
+        emo = (r[2] or "—").strip()
+        dist = (r[5] or "—").strip()
+        emo_counts[emo] = emo_counts.get(emo, 0) + 1
+        dist_counts[dist] = dist_counts.get(dist, 0) + 1
+        before = r[3]
+        after = r[4]
+        if isinstance(before, int) and isinstance(after, int):
+            deltas.append(before - after)
+
+    avg_delta = (sum(deltas) / len(deltas)) if deltas else 0.0
+    top_emo = max(emo_counts, key=emo_counts.get) if emo_counts else "—"
+    top_dist = max(dist_counts, key=dist_counts.get) if dist_counts else "—"
+
+    lines = [
+        f"📜 История (последние {len(rows)} карточек)",
+        "───────────────────",
+        f"Средний сдвиг: {avg_delta:+.1f}",
+        f"Чаще всего эмоция: {top_emo}",
+        f"Чаще всего искажение: {top_dist}",
+        "",
+        "Последние записи:",
+    ]
+
     for r in rows:
         thought = (r[1] or "").replace("\n", " ").strip()
-        if len(thought) > 40:
-            thought = thought[:40] + "…"
+        if len(thought) > 42:
+            thought = thought[:42] + "…"
         emo = r[2] or "—"
         before = r[3] if r[3] is not None else "—"
         after = r[4] if r[4] is not None else "—"
-        dist = r[5] or "—"
         delta = "—"
         if isinstance(before, int) and isinstance(after, int):
-            delta = before - after
+            d = before - after
+            delta = f"↓{d}" if d > 0 else (f"↑{abs(d)}" if d < 0 else "—")
 
-        # Visual indicator for improvement
-        if isinstance(delta, int):
-            if delta > 0:
-                delta_str = f"↓{delta}"  # Down arrow for improvement
-            elif delta < 0:
-                delta_str = f"↑{abs(delta)}"
-            else:
-                delta_str = "—"
-        else:
-            delta_str = delta
-
-        lines.append(f"• {emo} {delta_str}\n  {thought[:35]}")
+        lines.append(f"• {emo} {delta}  ({before}→{after})\n  {thought}")
 
     lines.append(f"\n{HISTORY_FILTER_HINT_RU}")
     text = "\n".join(lines)
