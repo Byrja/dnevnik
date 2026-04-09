@@ -1702,7 +1702,12 @@ async def _finalize_with_after_intensity(update: Update, context: ContextTypes.D
     if out_msg:
         tone = _get_tone(user_id) if user_id is not None else "warm"
         preface = _tone_text(tone, "result_preface")
-        result_text = _format_result(before=before, after=after, delta=delta, next_step=next_step, anchor=anchor)
+        alt = (draft.get("alternative_thought") or "").strip()
+        if alt:
+            insight = alt if len(alt) <= 160 else alt[:157] + "..."
+        else:
+            insight = "Самый полезный сдвиг — отделять факты от автоматической тревожной мысли."
+        result_text = _format_result(before=before, after=after, delta=delta, next_step=next_step, anchor=anchor, insight=insight)
         await out_msg.reply_text(f"{preface}\n\n{result_text}", reply_markup=_result_actions_inline())
 
     context.user_data.pop("draft_entry", None)

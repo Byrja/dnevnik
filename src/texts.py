@@ -272,7 +272,7 @@ def _progress_bar(value: int, width: int = 10) -> str:
     filled = int(value / 100 * width)
     return PROGRESS_BAR_FULL * filled + PROGRESS_BAR_EMPTY * (width - filled)
 
-def _format_result(before: int, after: int, delta: int, next_step: str, anchor: str) -> str:
+def _format_result(before: int, after: int, delta: int, next_step: str, anchor: str, insight: str) -> str:
     """Format final card with clear outcome + one concrete action."""
     bar_before = _progress_bar(before)
     bar_after = _progress_bar(after)
@@ -294,10 +294,13 @@ def _format_result(before: int, after: int, delta: int, next_step: str, anchor: 
         f"Δ: {delta:+d}\n\n"
         f"{improvement}\n"
         "───────────────────\n"
+        "🔎 Ключевой инсайт:\n"
+        f"{insight}\n\n"
         "🎯 Что сделать сейчас (10 минут):\n"
         f"{next_step}\n\n"
         "🧷 Якорь на день:\n"
-        f"{anchor}"
+        f"{anchor}\n\n"
+        "↩️ Вернись позже и проверь, как изменилась интенсивность."
     )
 
 HISTORY_EMPTY_RU = (
