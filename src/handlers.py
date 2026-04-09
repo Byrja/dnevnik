@@ -141,6 +141,24 @@ def _contains_crisis_signal(text: str) -> bool:
     return any(m in s for m in markers)
 
 
+def _is_too_vague(text: str) -> bool:
+    s = (text or "").strip().lower()
+    vague = {
+        "не знаю",
+        "всё плохо",
+        "плохо",
+        "сложно",
+        "никак",
+        "норм",
+        "нормально",
+        "тяжело",
+        "устал",
+    }
+    if s in vague:
+        return True
+    return len(s) < 10
+
+
 async def _handle_crisis(update: Update, context: ContextTypes.DEFAULT_TYPE, source_text: str) -> int:
     if update.effective_user:
         conn = get_conn()
@@ -591,6 +609,9 @@ async def receive_thought_text(update: Update, context: ContextTypes.DEFAULT_TYP
     if len(thought_text) < 3:
         await update.message.reply_text("Слишком коротко. Напиши хотя бы 3 символа.")
         return WAIT_THOUGHT
+    if _is_too_vague(thought_text):
+        await update.message.reply_text("Попробуй конкретнее: «Я думаю, что … и из-за этого …». Так разбор будет точнее.")
+        return WAIT_THOUGHT
 
     context.user_data["draft_entry"] = {
         "tg_user_id": update.effective_user.id,
@@ -756,6 +777,9 @@ async def receive_evidence_for(update: Update, context: ContextTypes.DEFAULT_TYP
     if len(evidence_for) < 3:
         await update.message.reply_text("Слишком коротко. Напиши хотя бы 3 символа.")
         return WAIT_EVIDENCE_FOR
+    if _is_too_vague(evidence_for):
+        await update.message.reply_text("Нужны наблюдаемые факты. Пример: «дедлайн сдвинулся на 2 дня», «получил 1 критичный комментарий».")
+        return WAIT_EVIDENCE_FOR
 
     draft = context.user_data.get("draft_entry", {})
     entry_id = draft.get("entry_id")
@@ -817,6 +841,9 @@ async def receive_evidence_against(update: Update, context: ContextTypes.DEFAULT
         return await _handle_crisis(update, context, evidence_against)
     if len(evidence_against) < 3:
         await update.message.reply_text("Слишком коротко. Напиши хотя бы 3 символа.")
+        return WAIT_EVIDENCE_AGAINST
+    if _is_too_vague(evidence_against):
+        await update.message.reply_text("Дай 1–2 контрфакта. Например: «раньше уже справлялся», «есть поддержка», «есть план B».")
         return WAIT_EVIDENCE_AGAINST
 
     draft = context.user_data.get("draft_entry", {})
