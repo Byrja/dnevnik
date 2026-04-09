@@ -27,6 +27,7 @@ from handlers import (
     receive_intensity_before,
     receive_thought_text,
     send_daily_nudges,
+    send_session_timeout_nudges,
     set_reminders,
     set_tone,
     show_help,
@@ -98,6 +99,7 @@ def build_app(token: str) -> Application:
 
     if app.job_queue:
         app.job_queue.run_repeating(send_daily_nudges, interval=3600, first=90, name="daily_nudges")
+        app.job_queue.run_repeating(send_session_timeout_nudges, interval=900, first=180, name="session_timeout_nudges")
 
     return app
 

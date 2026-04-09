@@ -69,6 +69,8 @@ def init_db():
         cur.execute("ALTER TABLE entries ADD COLUMN completed_at DATETIME")
     if 'distortion_code' not in entry_cols:
         cur.execute("ALTER TABLE entries ADD COLUMN distortion_code TEXT")
+    if 'timeout_nudged_at' not in entry_cols:
+        cur.execute("ALTER TABLE entries ADD COLUMN timeout_nudged_at DATETIME")
 
     conn.commit()
     conn.close()

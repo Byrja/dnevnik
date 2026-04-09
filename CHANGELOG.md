@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🔴 High Priority
 - [x] Inline buttons instead of Reply keyboard (modern UI)
-- [ ] Session timeouts (remind inactive users)
+- [x] Session timeouts (remind inactive users)
 - [ ] Input validation with examples ("e.g.: 75")
 
 ### 🟡 Medium Priority

@@ -41,6 +41,7 @@ from texts import (
     ONBOARDING_3_RU,
     REMINDER_NUDGE_RU,
     REMINDER_STATE_TEMPLATE_RU,
+    SESSION_TIMEOUT_NUDGE_RU,
     SETTINGS_PROMPT_RU,
     SETTINGS_SAVED_TEMPLATE_RU,
     START_RU,
@@ -447,6 +448,42 @@ async def send_daily_nudges(context: ContextTypes.DEFAULT_TYPE) -> None:
             conn2.close()
         except Exception as e:
             logging.error(f"send_daily_nudges | Failed to send nudge to user={tg_user_id}: {e}")
+
+
+async def send_session_timeout_nudges(context: ContextTypes.DEFAULT_TYPE) -> None:
+    app = context.application
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT e.id, e.tg_user_id
+        FROM entries e
+        JOIN settings s ON s.tg_user_id = e.tg_user_id
+        WHERE e.is_completed = 0
+          AND COALESCE(s.reminders_enabled, 1) = 1
+          AND datetime(e.created_at) <= datetime('now', '-45 minutes')
+          AND (e.timeout_nudged_at IS NULL OR datetime(e.timeout_nudged_at) <= datetime('now', '-12 hours'))
+        ORDER BY e.id DESC
+        LIMIT 200
+        """
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    for row in rows:
+        entry_id, tg_user_id = row[0], row[1]
+        try:
+            await app.bot.send_message(chat_id=tg_user_id, text=SESSION_TIMEOUT_NUDGE_RU)
+            conn2 = get_conn()
+            cur2 = conn2.cursor()
+            cur2.execute(
+                "UPDATE entries SET timeout_nudged_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (entry_id,),
+            )
+            conn2.commit()
+            conn2.close()
+        except Exception as e:
+            logging.error(f"send_session_timeout_nudges | user={tg_user_id} entry={entry_id}: {e}")
 
 
 async def export_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
