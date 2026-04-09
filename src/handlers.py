@@ -271,12 +271,15 @@ async def _handle_crisis(update: Update, context: ContextTypes.DEFAULT_TYPE, sou
     return ConversationHandler.END
 
 
-def _main_menu_inline() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
+def _main_menu_inline(tg_user_id: int | None = None) -> InlineKeyboardMarkup:
+    rows = [
         [InlineKeyboardButton("🎯 Новая мысль", callback_data="menu:new")],
         [InlineKeyboardButton("📜 История", callback_data="menu:history"), InlineKeyboardButton("📊 Статистика", callback_data="menu:stats")],
         [InlineKeyboardButton("⚙️ Настройки", callback_data="menu:settings"), InlineKeyboardButton("❓ Помощь", callback_data="menu:help")],
-    ])
+    ]
+    if tg_user_id == OWNER_TG_ID:
+        rows.append([InlineKeyboardButton("🔐 Админка", callback_data="menu:admin")])
+    return InlineKeyboardMarkup(rows)
 
 
 def _result_actions_inline() -> InlineKeyboardMarkup:
@@ -406,12 +409,11 @@ def _menu_intro_text_for_user(tg_user_id: int | None) -> str:
     else:
         suffix = f"У тебя уже {completed} завершён(ых) карточек. Продолжим в том же ритме."
 
-    return f"🧠 Clarity CBT\n{greet}. {suffix}\n\nВыбери действие:"
-
+    return f"🧠 Clarity CBT\n{greet}. {suffix}\n\nВыбери действие ниже:"
 
 async def _send_main_menu(msg) -> None:
     user_id = msg.from_user.id if getattr(msg, 'from_user', None) else None
-    await msg.reply_text(_menu_intro_text_for_user(user_id), reply_markup=_main_menu_inline())
+    await msg.reply_text(_menu_intro_text_for_user(user_id), reply_markup=_main_menu_inline(user_id))
 
 
 async def go_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -420,7 +422,7 @@ async def go_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     if update.callback_query:
         uid = update.effective_user.id if update.effective_user else None
-        await update.callback_query.edit_message_text(_menu_intro_text_for_user(uid), reply_markup=_main_menu_inline())
+        await update.callback_query.edit_message_text(_menu_intro_text_for_user(uid), reply_markup=_main_menu_inline(uid))
     else:
         await _send_main_menu(msg)
 
@@ -562,9 +564,14 @@ async def main_menu_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await show_settings(update, context)
     elif action == "help":
         await show_help(update, context)
+    elif action == "admin":
+        if _is_owner(update):
+            await query.edit_message_text("🔐 Админка\nВыбери действие:", reply_markup=_admin_panel_keyboard())
+        else:
+            await query.answer("Недоступно", show_alert=True)
     elif action == "home":
         uid = update.effective_user.id if update.effective_user else None
-        await query.edit_message_text(_menu_intro_text_for_user(uid), reply_markup=_main_menu_inline())
+        await query.edit_message_text(_menu_intro_text_for_user(uid), reply_markup=_main_menu_inline(uid))
 
 
 async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

@@ -19,7 +19,7 @@ class CallbackRoutesTests(unittest.TestCase):
 
     def test_menu_callback_routes_exist(self) -> None:
         src = main_py()
-        self.assertIn("menu:(history|stats|settings|help|home)", src)
+        self.assertIn("menu:(history|stats|settings|help|admin|home)", src)
         self.assertIn("followup:(3h)", src)
         self.assertIn("emohelp:(anxiety|sadness|anger|other|back|future|loss|boundary)", src)
 
