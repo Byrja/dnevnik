@@ -417,7 +417,7 @@ def _menu_intro_text_for_user(tg_user_id: int | None) -> str:
     support_line = "Если накрывает, разложим мысль по шагам и вернём контроль без лишней драмы."
 
     return (
-        f"🧠 Clarity CBT\n"
+        f"🧠 Ясно?\n"
         f"{greet}.\n"
         f"{progress_line}\n"
         f"{support_line}\n\n"
@@ -1133,7 +1133,7 @@ async def _send_export_document(msg, rows, fmt: str, suffix: str = "") -> None:
         await msg.reply_document(document=bio, filename=bio.name)
         return
 
-    lines = ["Clarity export (txt)"]
+    lines = ["Ясно? export (txt)"]
     for i, r in enumerate(rows, 1):
         delta = "—"
         if isinstance(r[3], int) and isinstance(r[9], int):
