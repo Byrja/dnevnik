@@ -239,7 +239,7 @@ ALTERNATIVE_PROMPT_RU = (
 
 ALTERNATIVE_HINT_PROMPT_RU = (
     f"{EMOJI_HINT} Не знаешь с чего начать?\n"
-    "Выбери подсказку:"
+    "Выбери подсказку или попроси 🤖 помочь переформулировать."
 )
 
 INTENSITY_AFTER_PROMPT_RU = (

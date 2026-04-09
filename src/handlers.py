@@ -750,6 +750,7 @@ def _alternative_hint_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton("Что бы я сказал другу?", callback_data="alt_hint:friend")],
             [InlineKeyboardButton("Факты против страха", callback_data="alt_hint:facts")],
             [InlineKeyboardButton("Мягкая реалистичная версия", callback_data="alt_hint:balanced")],
+            [InlineKeyboardButton("🤖 Помоги переформулировать", callback_data="alt_ai:rewrite")],
         ]
     )
 
@@ -761,6 +762,18 @@ def _alternative_hint_text(kind: str, thought: str) -> str:
     if kind == "facts":
         return "Проверь: какие 2–3 факта прямо сейчас не подтверждают худший сценарий? Собери их и сформулируй более точную мысль."
     return "Более реалистичная формулировка: «Да, сейчас мне непросто. Но это временно, и у меня есть шаги, которые помогут стабилизироваться»."
+
+
+def _ai_rewrite_options(thought: str, evidence_against: str) -> list[str]:
+    t = (thought or "").strip() or "Мне сейчас тяжело"
+    ea = (evidence_against or "").strip()
+    fact_tail = f" Факты против худшего сценария: {ea[:140]}." if ea else ""
+
+    return [
+        f"Сейчас мне тревожно, и это объяснимо. Но мысль «{t[:120]}» — это не факт.{fact_tail} Я могу сделать один маленький шаг и проверить реальность.",
+        f"Я замечаю автоматическую мысль: «{t[:120]}». Она усиливает эмоцию, но не определяет реальность.{fact_tail} Более точный вывод: ситуация сложная, но решаемая по шагам.",
+        f"Мне непросто, и это ок. Вместо «{t[:120]}» я выбираю: «Сейчас тяжело, но я справляюсь шаг за шагом».{fact_tail}",
+    ]
 
 
 async def receive_evidence_against(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -884,13 +897,26 @@ async def apply_alternative_hint(update: Update, context: ContextTypes.DEFAULT_T
 
     draft = context.user_data.get("draft_entry", {})
     thought = draft.get("thought_text", "")
-    kind = (query.data or "alt_hint:balanced").split(":", 1)[1]
-    hint_text = _alternative_hint_text(kind, thought)
-
     entry_id = draft.get("entry_id")
     if not entry_id:
         await query.message.reply_text("Не нашла активную запись. Нажми «Новая мысль» и начни заново.")
         return
+
+    data = query.data or "alt_hint:balanced"
+    if data.startswith("alt_ai:"):
+        options = _ai_rewrite_options(thought=thought, evidence_against=draft.get("evidence_against", ""))
+        ai_text = (
+            "🤖 Варианты переформулировки:\n\n"
+            f"1) {options[0]}\n\n"
+            f"2) {options[1]}\n\n"
+            f"3) {options[2]}\n\n"
+            "Выбери любой вариант (можно отредактировать своими словами) и отправь его сообщением."
+        )
+        await query.message.reply_text(ai_text)
+        return
+
+    kind = data.split(":", 1)[1]
+    hint_text = _alternative_hint_text(kind, thought)
 
     conn = get_conn()
     cur = conn.cursor()
