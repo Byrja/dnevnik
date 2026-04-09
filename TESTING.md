@@ -2,6 +2,7 @@
 
 ## Автопроверка (локально)
 - `python -m py_compile src/*.py`
+- `python -m unittest tests/test_callback_routes.py`
 - `python src/main.py` запускается без падения (polling)
 - SQLite содержит таблицы: `users`, `settings`, `entries`
 
