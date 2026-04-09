@@ -77,7 +77,14 @@ dnevnik/
 ### Тестирование
 ```bash
 python -m py_compile src/*.py  # Проверка синтаксиса
+python -m unittest tests/test_callback_routes.py
 ```
+
+### Release gate (P0)
+```bash
+./scripts/run_release_gate_p0.sh
+```
+Обновляет `RELEASE_GATE_STATUS_2026-04-09.md` по результатам автопроверок.
 
 ### Деплой (production)
 ```bash
