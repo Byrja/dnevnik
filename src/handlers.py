@@ -136,6 +136,20 @@ DISTORTION_EXPLAIN = {
     "Предсказание будущего": "уверен, что всё пойдёт плохо заранее",
 }
 
+DISTORTION_DETAILS = {
+    "catastrophizing": "Катастрофизация\n\nКак выглядит: «если что-то пойдёт не так — это катастрофа».\nЧем вредит: резко поднимает тревогу и блокирует действие.\nКак проверить: выпиши 3 более вероятных исхода, не только худший.",
+    "mind_reading": "Чтение мыслей\n\nКак выглядит: «они точно думают, что я слабый/глупый».\nЧем вредит: заставляет реагировать на догадки, а не факты.\nКак проверить: какие реальные данные у меня есть, кроме предположений?",
+    "black_white": "Черно-белое мышление\n\nКак выглядит: «или идеально, или провал».\nЧем вредит: обесценивает нормальный прогресс.\nКак проверить: где шкала 0–100, а не только 0/100?",
+    "discounting_positive": "Обесценивание позитивного\n\nКак выглядит: «да, получилось, но это случайно/не считается».\nЧем вредит: мозг не фиксирует опоры и успехи.\nКак проверить: что конкретно получилось благодаря моим действиям?",
+    "overgeneralization": "Сверхобобщение\n\nКак выглядит: «один раз не вышло — значит всегда так».\nЧем вредит: делает будущее заранее проигранным.\nКак проверить: есть ли примеры, где было иначе?",
+    "personalization": "Персонализация\n\nКак выглядит: «это всё из-за меня», даже если факторов много.\nЧем вредит: лишняя вина и выгорание.\nКак проверить: что в зоне моей ответственности, а что нет?",
+    "emotional_reasoning": "Эмоциональное обоснование\n\nКак выглядит: «мне страшно, значит это точно опасно».\nЧем вредит: эмоция подменяет факт.\nКак проверить: какие есть внешние подтверждения, кроме чувства?",
+    "should_statements": "Долженствование\n\nКак выглядит: «я должен быть идеальным, всегда справляться».\nЧем вредит: жёсткость к себе, вина и злость.\nКак проверить: заменяю «должен» на «предпочитаю/могу/выбираю».",
+    "labeling": "Навешивание ярлыков\n\nКак выглядит: «я неудачник», вместо описания ситуации.\nЧем вредит: фиксирует негативную идентичность.\nКак проверить: описать конкретный поступок, а не клеймо на себя целиком.",
+    "fortune_telling": "Предсказание будущего\n\nКак выглядит: «всё равно будет плохо».\nЧем вредит: лишает мотивации пробовать.\nКак проверить: какие факты подтверждают прогноз, а какие — нет?",
+    "other": "Другое\n\nЕсли не нашёл точное совпадение, выбери ближайший вариант и иди дальше — это нормально. Главное, чтобы формулировка помогала действовать.",
+}
+
 CODE_TO_DISTORTION_LABEL = {v: k for k, v in DISTORTION_LABEL_TO_CODE.items()}
 
 
@@ -209,11 +223,44 @@ def _main_menu_inline() -> InlineKeyboardMarkup:
     ])
 
 
+def _distortion_choice_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [
+            ["Катастрофизация", "Чтение мыслей"],
+            ["Черно-белое мышление", "Обесценивание позитивного"],
+            ["Сверхобобщение", "Персонализация"],
+            ["Эмоц. обоснование", "Долженствование"],
+            ["Навешивание ярлыков", "Предсказание будущего"],
+            ["Не уверен", "Другое"],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
+
 def _flow_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [["В меню"]],
         resize_keyboard=True,
     )
+
+
+def _distortion_info_keyboard() -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton("Катастрофизация", callback_data="dist_info:catastrophizing")],
+        [InlineKeyboardButton("Чтение мыслей", callback_data="dist_info:mind_reading")],
+        [InlineKeyboardButton("Черно-белое мышление", callback_data="dist_info:black_white")],
+        [InlineKeyboardButton("Обесценивание позитивного", callback_data="dist_info:discounting_positive")],
+        [InlineKeyboardButton("Сверхобобщение", callback_data="dist_info:overgeneralization")],
+        [InlineKeyboardButton("Персонализация", callback_data="dist_info:personalization")],
+        [InlineKeyboardButton("Эмоц. обоснование", callback_data="dist_info:emotional_reasoning")],
+        [InlineKeyboardButton("Долженствование", callback_data="dist_info:should_statements")],
+        [InlineKeyboardButton("Навешивание ярлыков", callback_data="dist_info:labeling")],
+        [InlineKeyboardButton("Предсказание будущего", callback_data="dist_info:fortune_telling")],
+        [InlineKeyboardButton("Другое", callback_data="dist_info:other")],
+        [InlineKeyboardButton("⬅️ Назад к выбору", callback_data="dist_info:back")],
+    ]
+    return InlineKeyboardMarkup(rows)
 
 
 def _intensity_quick_keyboard(kind: str) -> InlineKeyboardMarkup:
@@ -691,21 +738,8 @@ async def _save_intensity_before_and_next(update: Update, context: ContextTypes.
     draft["entry_id"] = entry_id
     context.user_data["draft_entry"] = draft
 
-    distortion_keyboard = ReplyKeyboardMarkup(
-        [
-            ["Катастрофизация", "Чтение мыслей"],
-            ["Черно-белое мышление", "Обесценивание позитивного"],
-            ["Сверхобобщение", "Персонализация"],
-            ["Эмоц. обоснование", "Долженствование"],
-            ["Навешивание ярлыков", "Предсказание будущего"],
-            ["Не уверен", "Другое"],
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=True,
-    )
-
     await msg.reply_text(EMOTION_STEP_DONE_RU)
-    await msg.reply_text(DISTORTION_PROMPT_RU, reply_markup=distortion_keyboard)
+    await msg.reply_text(DISTORTION_PROMPT_RU, reply_markup=_distortion_choice_keyboard())
     return WAIT_DISTORTION
 
 
@@ -745,6 +779,26 @@ async def choose_intensity_before(update: Update, context: ContextTypes.DEFAULT_
     return await _save_intensity_before_and_next(update, context, value, query.message)
 
 
+async def distortion_info_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    if not query:
+        return WAIT_DISTORTION
+    await query.answer()
+
+    code = (query.data or "dist_info:back").split(":", 1)[1]
+    if code == "back":
+        await query.message.reply_text("Верну к выбору искажения.", reply_markup=_distortion_choice_keyboard())
+        return WAIT_DISTORTION
+
+    text = DISTORTION_DETAILS.get(code)
+    if not text:
+        await query.message.reply_text("Не нашла описание, выбери пункт из списка.")
+        return WAIT_DISTORTION
+
+    await query.message.reply_text(text, reply_markup=_distortion_info_keyboard())
+    return WAIT_DISTORTION
+
+
 async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not update.message:
         return ConversationHandler.END
@@ -756,18 +810,9 @@ async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if distortion.lower() == "не уверен":
         await update.message.reply_text(
-            "Ок, вот полный ориентир:\n"
-            "• Катастрофизация — ожидаю худший исход\n"
-            "• Чтение мыслей — уверен, что знаю оценку других\n"
-            "• Черно-белое мышление — только «идеально или провал»\n"
-            "• Обесценивание позитивного — хорошее «не считается»\n"
-            "• Сверхобобщение — из одного случая делаю «всегда/никогда»\n"
-            "• Персонализация — беру на себя лишнюю вину\n"
-            "• Эмоц. обоснование — если страшно, значит точно опасно\n"
-            "• Долженствование — жёсткие «я должен»\n"
-            "• Навешивание ярлыков — вместо фактов общий ярлык\n"
-            "• Предсказание будущего — заранее уверен, что всё плохо\n\n"
-            "Выбери ближайший вариант кнопкой или нажми «Другое»."
+            "Ок, давай разберёмся точнее.\n"
+            "Нажми «Подробнее» на варианте, который ближе всего, потом выбери искажение в меню.",
+            reply_markup=_distortion_info_keyboard(),
         )
         return WAIT_DISTORTION
 
