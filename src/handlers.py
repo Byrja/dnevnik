@@ -302,6 +302,7 @@ def _admin_ab_keyboard() -> InlineKeyboardMarkup:
 def _admin_panel_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📈 Funnel", callback_data="adminpanel:funnel")],
+        [InlineKeyboardButton("👥 Пользователи", callback_data="adminpanel:users")],
         [InlineKeyboardButton("🧪 A/B режим", callback_data="adminpanel:ab")],
         [InlineKeyboardButton("📤 Экспорт (инфо)", callback_data="adminpanel:export_help")],
     ])
@@ -678,6 +679,96 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await update.message.reply_text("🔐 Админка\nВыбери действие:", reply_markup=_admin_panel_keyboard())
 
 
+async def admin_users_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query or not _is_owner(update):
+        return
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT u.tg_user_id, COALESCE(u.full_name, ''), COALESCE(u.username, ''),
+               COUNT(e.id) as total_entries,
+               MAX(e.created_at) as last_entry
+        FROM users u
+        LEFT JOIN entries e ON e.tg_user_id = u.tg_user_id
+        GROUP BY u.tg_user_id, u.full_name, u.username
+        ORDER BY COALESCE(last_entry, u.created_at) DESC
+        LIMIT 20
+        """
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        await query.edit_message_text("Пользователей пока нет.", reply_markup=_admin_back_keyboard())
+        return
+
+    kb_rows = []
+    for uid, full_name, username, total_entries, _ in rows:
+        label = f"{full_name or ('@'+username if username else uid)} · {total_entries}"
+        kb_rows.append([InlineKeyboardButton(label[:60], callback_data=f"adminuser:view:{uid}")])
+    kb_rows.append([InlineKeyboardButton("⬅️ В админку", callback_data="adminpanel:home")])
+
+    await query.edit_message_text("👥 Пользователи (последние 20):", reply_markup=InlineKeyboardMarkup(kb_rows))
+
+
+async def admin_user_view(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query or not _is_owner(update):
+        return
+
+    try:
+        uid = int((query.data or "adminuser:view:0").split(":", 2)[2])
+    except Exception:
+        await query.edit_message_text("Не удалось открыть пользователя.", reply_markup=_admin_back_keyboard())
+        return
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT full_name, username, created_at FROM users WHERE tg_user_id = ?", (uid,))
+    u = cur.fetchone()
+    cur.execute(
+        """
+        SELECT COUNT(*),
+               SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END),
+               MAX(created_at)
+        FROM entries WHERE tg_user_id = ?
+        """,
+        (uid,),
+    )
+    stats = cur.fetchone()
+    conn.close()
+
+    if not u:
+        await query.edit_message_text("Пользователь не найден.", reply_markup=_admin_back_keyboard())
+        return
+
+    full_name, username, created_at = u
+    total, completed, last_entry = stats if stats else (0, 0, None)
+
+    text = (
+        "👤 Карточка пользователя\n"
+        "───────────────────\n"
+        f"ID: {uid}\n"
+        f"Имя: {full_name or '—'}\n"
+        f"Username: @{username if username else '—'}\n"
+        f"Создан: {created_at or '—'}\n\n"
+        f"Карточек всего: {total or 0}\n"
+        f"Завершено: {completed or 0}\n"
+        f"Последняя активность: {last_entry or '—'}"
+    )
+
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ К списку", callback_data="adminpanel:users")],
+            [InlineKeyboardButton("⬅️ В админку", callback_data="adminpanel:home")],
+        ]),
+    )
+
+
 async def admin_panel_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if not query or not _is_owner(update):
@@ -691,6 +782,8 @@ async def admin_panel_action(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await query.edit_message_text("🔐 Админка\nВыбери действие:", reply_markup=_admin_panel_keyboard())
     elif action == "funnel":
         await show_funnel(update, context)
+    elif action == "users":
+        await admin_users_list(update, context)
     elif action == "ab":
         await query.edit_message_text(f"A/B mode: {_get_ab_mode()}", reply_markup=_admin_ab_keyboard())
     elif action == "export_help":

@@ -34,7 +34,8 @@ class CallbackRoutesTests(unittest.TestCase):
         self.assertIn('CommandHandler("admin_ab", admin_ab_mode, filters=owner_filter)', src)
         self.assertIn('CommandHandler("funnel", show_funnel, filters=owner_filter)', src)
         self.assertIn('CommandHandler("export", export_progress, filters=owner_filter)', src)
-        self.assertIn('CallbackQueryHandler(admin_panel_action, pattern=r"^adminpanel:(home|funnel|ab|export_help)$")', src)
+        self.assertIn('CallbackQueryHandler(admin_panel_action, pattern=r"^adminpanel:(home|funnel|users|ab|export_help)$")', src)
+        self.assertIn('CallbackQueryHandler(admin_user_view, pattern=r"^adminuser:view:[0-9]+$")', src)
         self.assertIn('CallbackQueryHandler(admin_ab_action, pattern=r"^adminab:(status|test|a|b)$")', src)
 
     def test_global_menu_text_handler_registered(self) -> None:

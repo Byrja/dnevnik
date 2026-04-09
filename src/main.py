@@ -17,6 +17,7 @@ from handlers import (
     OWNER_TG_ID,
     admin_panel,
     admin_panel_action,
+    admin_user_view,
     apply_alternative_hint,
     cancel_flow,
     choose_intensity_after,
@@ -73,7 +74,8 @@ def build_app(token: str) -> Application:
     app.add_handler(CommandHandler("admin", admin_panel, filters=owner_filter))
     app.add_handler(CommandHandler("admin_ab", admin_ab_mode, filters=owner_filter))
     app.add_handler(CommandHandler("export", export_progress, filters=owner_filter))
-    app.add_handler(CallbackQueryHandler(admin_panel_action, pattern=r"^adminpanel:(home|funnel|ab|export_help)$"))
+    app.add_handler(CallbackQueryHandler(admin_panel_action, pattern=r"^adminpanel:(home|funnel|users|ab|export_help)$"))
+    app.add_handler(CallbackQueryHandler(admin_user_view, pattern=r"^adminuser:view:[0-9]+$"))
     app.add_handler(CallbackQueryHandler(admin_ab_action, pattern=r"^adminab:(status|test|a|b)$"))
     app.add_handler(CallbackQueryHandler(consent_accept, pattern="^consent_accept$"))
     app.add_handler(CallbackQueryHandler(set_tone, pattern=r"^tone:(warm|neutral)$"))

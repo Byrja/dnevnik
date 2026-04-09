@@ -12,7 +12,7 @@ Date: 2026-04-09
 
 ## Execution order (micro-steps)
 - [x] Step 1: admin back navigation consistency
-- [ ] Step 2: admin users list + user details view
+- [x] Step 2: admin users list + user details view
 - [ ] Step 3: remove Help from menu and menu routing
 - [ ] Step 4: tone mode explanation card on selection
 - [ ] Step 5: refresh concise premium main-menu description + smoke
