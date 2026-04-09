@@ -110,7 +110,39 @@ def _tone_text(tone: str, key: str) -> str:
     return tone_map.get(key, {}).get(tone, tone_map.get(key, {}).get("warm", ""))
 
 
+OWNER_TG_ID = 472144090
+
+
+def _get_ab_mode() -> str:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT ab_mode FROM settings WHERE tg_user_id = ?", (OWNER_TG_ID,))
+    row = cur.fetchone()
+    conn.close()
+    return (row[0] if row and row[0] else "test").lower()
+
+
+def _set_ab_mode(mode: str) -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO settings (tg_user_id, tone, language, ab_mode)
+        VALUES (?, 'warm', 'ru', ?)
+        ON CONFLICT(tg_user_id) DO UPDATE SET ab_mode = excluded.ab_mode, updated_at = CURRENT_TIMESTAMP
+        """,
+        (OWNER_TG_ID, mode),
+    )
+    conn.commit()
+    conn.close()
+
+
 def _ab_prompt_variant(user_id: int) -> str:
+    mode = _get_ab_mode()
+    if mode == "a":
+        return "A"
+    if mode == "b":
+        return "B"
     return "B" if user_id % 2 == 0 else "A"
 
 
@@ -508,6 +540,25 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.callback_query.edit_message_text(stats_text)
     else:
         await msg.reply_text(stats_text)
+
+
+async def admin_ab_mode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message or not update.effective_user:
+        return
+    if update.effective_user.id != OWNER_TG_ID:
+        await update.message.reply_text("Команда доступна только владельцу.")
+        return
+
+    arg = (context.args[0].lower().strip() if context.args else "status")
+    if arg in {"status", "show"}:
+        await update.message.reply_text(f"A/B mode: {_get_ab_mode()}")
+        return
+    if arg in {"test", "a", "b"}:
+        _set_ab_mode(arg)
+        await update.message.reply_text(f"A/B mode updated: {arg}")
+        return
+
+    await update.message.reply_text("Используй: /admin_ab status|test|a|b")
 
 
 async def show_funnel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

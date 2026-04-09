@@ -72,6 +72,8 @@ def init_db():
         cur.execute("ALTER TABLE settings ADD COLUMN reminders_enabled INTEGER NOT NULL DEFAULT 1")
     if 'last_nudge_at' not in cols:
         cur.execute("ALTER TABLE settings ADD COLUMN last_nudge_at DATETIME")
+    if 'ab_mode' not in cols:
+        cur.execute("ALTER TABLE settings ADD COLUMN ab_mode TEXT NOT NULL DEFAULT 'test'")
 
     cur.execute("PRAGMA table_info(entries)")
     entry_cols = {r[1] for r in cur.fetchall()}
