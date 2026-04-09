@@ -214,12 +214,10 @@ def _main_menu_keyboard() -> ReplyKeyboardMarkup:
 
 
 def _main_menu_inline() -> InlineKeyboardMarkup:
-    """Inline buttons for main menu (optional modern UI)."""
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎯 Новая мысль", callback_data="menu:new")],
-        [InlineKeyboardButton("📜 История", callback_data="menu:history")],
-        [InlineKeyboardButton("⚙️ Настройки", callback_data="menu:settings")],
-        [InlineKeyboardButton("❓ Помощь", callback_data="menu:help")],
+        [InlineKeyboardButton("Новая мысль", callback_data="menu:new")],
+        [InlineKeyboardButton("История", callback_data="menu:history"), InlineKeyboardButton("Статистика", callback_data="menu:stats")],
+        [InlineKeyboardButton("Настройки", callback_data="menu:settings"), InlineKeyboardButton("Помощь", callback_data="menu:help")],
     ])
 
 
@@ -298,7 +296,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     if _user_exists(user.id):
-        await update.message.reply_text(START_RU)
         await _send_main_menu(update.message)
         return
 
@@ -399,6 +396,8 @@ async def main_menu_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await new_thought_entry(update, context)
     elif action == "history":
         await show_history(update, context)
+    elif action == "stats":
+        await show_stats(update, context)
     elif action == "settings":
         await show_settings(update, context)
     elif action == "help":
