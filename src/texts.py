@@ -263,31 +263,28 @@ def _progress_bar(value: int, width: int = 10) -> str:
     return PROGRESS_BAR_FULL * filled + PROGRESS_BAR_EMPTY * (width - filled)
 
 def _format_result(before: int, after: int, delta: int, next_step: str) -> str:
-    """Format the result with visual elements."""
+    """Format final card with clear outcome + one concrete action."""
     bar_before = _progress_bar(before)
     bar_after = _progress_bar(after)
 
-    # Emoji for improvement
     if delta > 20:
-        improvement = "🌟 Отличный результат!"
+        improvement = "🌟 Отличный сдвиг"
     elif delta > 0:
-        improvement = "👍 Хороший сдвиг!"
+        improvement = "👍 Есть прогресс"
     elif delta == 0:
-        improvement = "➡️ Без изменений"
+        improvement = "➡️ Пока без изменений"
     else:
-        improvement = "💪 Ещё есть над чем поработать"
+        improvement = "💪 Нормально, продолжаем"
 
     return (
-        f"{EMOJI_RESULT} Карточка завершена!\n"
+        f"{EMOJI_RESULT} Итог разбора\n"
         "━━━━━━━━━━━━━━━━━━━\n"
-        f"До разбора: {before}/100\n"
-        f"{bar_before}\n\n"
-        f"После разбора: {after}/100\n"
-        f"{bar_after}\n\n"
-        f"📈 Изменение: {delta:+d}\n\n"
+        f"До: {before}/100  {bar_before}\n"
+        f"После: {after}/100  {bar_after}\n"
+        f"Δ: {delta:+d}\n\n"
         f"{improvement}\n"
         "━━━━━━━━━━━━━━━━━━━\n"
-        f"💡 Следующий шаг:\n"
+        "🎯 Что сделать сейчас (10 минут):\n"
         f"{next_step}"
     )
 
