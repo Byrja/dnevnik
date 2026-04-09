@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] — Planned Improvements
 
 ### 🔴 High Priority
-- [ ] Inline buttons instead of Reply keyboard (modern UI)
+- [x] Inline buttons instead of Reply keyboard (modern UI)
 - [ ] Session timeouts (remind inactive users)
 - [ ] Input validation with examples ("e.g.: 75")
 

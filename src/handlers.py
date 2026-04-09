@@ -185,7 +185,7 @@ def _flow_keyboard() -> ReplyKeyboardMarkup:
 
 
 async def _send_main_menu(msg) -> None:
-    await msg.reply_text(MENU_RU, reply_markup=_main_menu_keyboard())
+    await msg.reply_text(MENU_RU, reply_markup=_main_menu_inline())
 
 
 async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -239,7 +239,8 @@ async def show_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message:
+    msg = update.message or (update.callback_query.message if update.callback_query else None)
+    if not msg:
         return
     kb = InlineKeyboardMarkup(
         [
@@ -247,7 +248,7 @@ async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             [InlineKeyboardButton("Нейтральный", callback_data="tone:neutral")],
         ]
     )
-    await update.message.reply_text(SETTINGS_PROMPT_RU, reply_markup=kb)
+    await msg.reply_text(SETTINGS_PROMPT_RU, reply_markup=kb)
 
 
 async def set_tone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -275,14 +276,37 @@ async def set_tone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show help message with all commands."""
-    if not update.message:
+    msg = update.message or (update.callback_query.message if update.callback_query else None)
+    if not msg:
         return
-    await update.message.reply_text(HELP_RU, parse_mode=None)
+    await msg.reply_text(HELP_RU, parse_mode=None)
+
+
+async def main_menu_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+
+    action = (query.data or "").split(":", 1)[-1]
+    msg = query.message
+    if not msg:
+        return
+
+    if action == "new":
+        await new_thought_entry(update, context)
+    elif action == "history":
+        await show_history(update, context)
+    elif action == "settings":
+        await show_settings(update, context)
+    elif action == "help":
+        await show_help(update, context)
 
 
 async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show user statistics."""
-    if not update.message or not update.effective_user:
+    msg = update.message or (update.callback_query.message if update.callback_query else None)
+    if not msg or not update.effective_user:
         return
 
     user_id = update.effective_user.id
@@ -296,7 +320,7 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     if total == 0:
         conn.close()
-        await update.message.reply_text(STATS_EMPTY_RU)
+        await msg.reply_text(STATS_EMPTY_RU)
         return
 
     # Cards in last 7 days
@@ -362,7 +386,7 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         streak=streak,
         top_emotions=top_emotions_str,
     )
-    await update.message.reply_text(stats_text)
+    await msg.reply_text(stats_text)
 
 
 async def set_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -504,10 +528,11 @@ async def export_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def new_thought_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    if not update.message or not update.effective_user:
+    msg = update.message or (update.callback_query.message if update.callback_query else None)
+    if not msg or not update.effective_user:
         return ConversationHandler.END
     tone = _get_tone(update.effective_user.id)
-    await update.message.reply_text(f"Шаг 1/8 • Мысль\n{_tone_text(tone, 'thought_prompt')}\n\n{CANCEL_HINT_RU}", reply_markup=_flow_keyboard())
+    await msg.reply_text(f"Шаг 1/8 • Мысль\n{_tone_text(tone, 'thought_prompt')}\n\n{CANCEL_HINT_RU}", reply_markup=_flow_keyboard())
     return WAIT_THOUGHT
 
 
@@ -771,7 +796,7 @@ async def _finalize_with_after_intensity(update: Update, context: ContextTypes.D
     if update.message:
         # Use the new formatted result with visual elements
         result_text = _format_result(before=before, after=after, delta=delta, next_step=next_step)
-        await update.message.reply_text(result_text, reply_markup=_main_menu_keyboard())
+        await update.message.reply_text(result_text, reply_markup=_main_menu_inline())
 
     context.user_data.pop("draft_entry", None)
     return ConversationHandler.END
@@ -902,10 +927,12 @@ def _parse_history_filters(text: str) -> tuple[str | None, str | None, str | Non
 
 
 async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or not update.effective_user:
+    msg = update.message or (update.callback_query.message if update.callback_query else None)
+    if not msg or not update.effective_user:
         return
 
-    emotion, distortion, distortion_code, days = _parse_history_filters(update.message.text or "")
+    base_text = update.message.text if update.message else "История"
+    emotion, distortion, distortion_code, days = _parse_history_filters(base_text or "")
 
     query = (
         """
@@ -937,7 +964,7 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     conn.close()
 
     if not rows:
-        await update.message.reply_text(HISTORY_EMPTY_RU)
+        await msg.reply_text(HISTORY_EMPTY_RU)
         return
 
     lines = [f"📜 История (последние {len(rows)} карточек)\n━━━━━━━━━━━━━━━"]
@@ -967,4 +994,4 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         lines.append(f"• {emo} {delta_str}\n  {thought[:35]}")
 
     lines.append(f"\n{HISTORY_FILTER_HINT_RU}")
-    await update.message.reply_text("\n".join(lines))
+    await msg.reply_text("\n".join(lines))

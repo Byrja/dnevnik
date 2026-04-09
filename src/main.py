@@ -16,6 +16,7 @@ from handlers import (
     cancel_flow,
     consent_accept,
     export_progress,
+    main_menu_action,
     new_thought_entry,
     receive_alternative_thought,
     receive_distortion,
@@ -55,6 +56,7 @@ def build_app(token: str) -> Application:
     app.add_handler(CallbackQueryHandler(consent_accept, pattern="^consent_accept$"))
     app.add_handler(CallbackQueryHandler(set_tone, pattern=r"^tone:(warm|neutral)$"))
     app.add_handler(CallbackQueryHandler(apply_alternative_hint, pattern=r"^alt_hint:(friend|facts|balanced)$"))
+    app.add_handler(CallbackQueryHandler(main_menu_action, pattern=r"^menu:(new|history|settings|help)$"))
     app.add_handler(CommandHandler("history", show_history))
     app.add_handler(CommandHandler("export", export_progress))
     app.add_handler(MessageHandler(filters.Regex(r"^История$"), show_history))
