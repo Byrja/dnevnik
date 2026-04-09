@@ -214,12 +214,11 @@ def _main_menu_keyboard() -> ReplyKeyboardMarkup:
 
 
 def _main_menu_inline() -> InlineKeyboardMarkup:
-    """Inline buttons for main menu (optional modern UI)."""
+    """Premium compact main menu."""
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎯 Новая мысль", callback_data="menu:new")],
-        [InlineKeyboardButton("📜 История", callback_data="menu:history")],
-        [InlineKeyboardButton("⚙️ Настройки", callback_data="menu:settings")],
-        [InlineKeyboardButton("❓ Помощь", callback_data="menu:help")],
+        [InlineKeyboardButton("✨ Новая мысль", callback_data="menu:new")],
+        [InlineKeyboardButton("📜 История", callback_data="menu:history"), InlineKeyboardButton("📊 Статистика", callback_data="menu:stats")],
+        [InlineKeyboardButton("⚙️ Настройки", callback_data="menu:settings"), InlineKeyboardButton("❓ Помощь", callback_data="menu:help")],
     ])
 
 
@@ -421,6 +420,8 @@ async def main_menu_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await show_settings(update, context)
     elif action == "help":
         await show_help(update, context)
+    elif action == "stats":
+        await show_stats(update, context)
     elif action == "home":
         await _edit_to_main_menu(query)
 
