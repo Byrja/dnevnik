@@ -215,9 +215,9 @@ def _main_menu_keyboard() -> ReplyKeyboardMarkup:
 
 def _main_menu_inline() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Новая мысль", callback_data="menu:new")],
-        [InlineKeyboardButton("История", callback_data="menu:history"), InlineKeyboardButton("Статистика", callback_data="menu:stats")],
-        [InlineKeyboardButton("Настройки", callback_data="menu:settings"), InlineKeyboardButton("Помощь", callback_data="menu:help")],
+        [InlineKeyboardButton("🎯 Новая мысль", callback_data="menu:new")],
+        [InlineKeyboardButton("📜 История", callback_data="menu:history"), InlineKeyboardButton("📊 Статистика", callback_data="menu:stats")],
+        [InlineKeyboardButton("⚙️ Настройки", callback_data="menu:settings"), InlineKeyboardButton("❓ Помощь", callback_data="menu:help")],
     ])
 
 
