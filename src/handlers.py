@@ -525,6 +525,9 @@ async def set_followup_reminder(update: Update, context: ContextTypes.DEFAULT_TY
             await ctx.bot.send_message(
                 chat_id=chat_id,
                 text="Мягкое напоминание: вернись к мысли и проверь, как ты сейчас. Если нужно — сделай короткий повтор карточки.",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🎯 Новая мысль", callback_data="menu:new")]]
+                ),
             )
 
         context.job_queue.run_once(_send_followup, when=hours * 3600)
