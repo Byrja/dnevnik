@@ -22,6 +22,10 @@ class CallbackRoutesTests(unittest.TestCase):
         self.assertIn("menu:(history|stats|settings|help|home)", src)
         self.assertIn("followup:(3h)", src)
 
+    def test_funnel_command_registered(self) -> None:
+        src = main_py()
+        self.assertIn('CommandHandler("funnel", show_funnel)', src)
+
     def test_distortion_callback_routes_exist(self) -> None:
         src = main_py()
         self.assertIn("dist_info:(back|catastrophizing|mind_reading|black_white|discounting_positive|overgeneralization|personalization|emotional_reasoning|should_statements|labeling|fortune_telling|other)", src)

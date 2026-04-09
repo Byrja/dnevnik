@@ -499,6 +499,51 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await msg.reply_text(stats_text)
 
 
+async def show_funnel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    msg = update.message or (update.callback_query.message if update.callback_query else None)
+    if not msg:
+        return
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("SELECT COUNT(*) FROM events WHERE event_name = 'session_started'")
+    started = int(cur.fetchone()[0] or 0)
+
+    cur.execute("SELECT COUNT(*) FROM events WHERE event_name = 'session_completed'")
+    completed = int(cur.fetchone()[0] or 0)
+
+    step_counts: dict[int, int] = {}
+    for step in range(1, 9):
+        cur.execute(
+            "SELECT COUNT(*) FROM events WHERE event_name = 'step_completed' AND step = ?",
+            (step,),
+        )
+        step_counts[step] = int(cur.fetchone()[0] or 0)
+
+    conn.close()
+
+    completion_rate = (completed / started * 100) if started else 0.0
+
+    lines = [
+        "📈 Funnel (all users)",
+        "───────────────────",
+        f"Sessions started: {started}",
+        f"Sessions completed: {completed}",
+        f"Completion rate: {completion_rate:.1f}%",
+        "",
+        "Step completions:",
+    ]
+    for step in range(1, 9):
+        lines.append(f"{step}: {step_counts[step]}")
+
+    text = "\n".join(lines)
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text, reply_markup=_nav_home_inline())
+    else:
+        await msg.reply_text(text)
+
+
 async def set_followup_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if not query:

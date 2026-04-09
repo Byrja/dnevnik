@@ -35,6 +35,7 @@ from handlers import (
     set_followup_reminder,
     set_reminders,
     set_tone,
+    show_funnel,
     show_help,
     show_history,
     show_onboarding,
@@ -59,6 +60,7 @@ def build_app(token: str) -> Application:
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", show_help))
     app.add_handler(CommandHandler("stats", show_stats))
+    app.add_handler(CommandHandler("funnel", show_funnel))
     app.add_handler(CallbackQueryHandler(consent_accept, pattern="^consent_accept$"))
     app.add_handler(CallbackQueryHandler(set_tone, pattern=r"^tone:(warm|neutral)$"))
     app.add_handler(CallbackQueryHandler(apply_alternative_hint, pattern=r"^alt_hint:(friend|facts|balanced)$|^alt_ai:(rewrite|back)$"))
