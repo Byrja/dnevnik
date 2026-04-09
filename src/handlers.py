@@ -275,7 +275,7 @@ def _main_menu_inline(tg_user_id: int | None = None) -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton("🎯 Новая мысль", callback_data="menu:new")],
         [InlineKeyboardButton("📜 История", callback_data="menu:history"), InlineKeyboardButton("📊 Статистика", callback_data="menu:stats")],
-        [InlineKeyboardButton("⚙️ Настройки", callback_data="menu:settings"), InlineKeyboardButton("❓ Помощь", callback_data="menu:help")],
+        [InlineKeyboardButton("⚙️ Настройки", callback_data="menu:settings")],
     ]
     if tg_user_id == OWNER_TG_ID:
         rows.append([InlineKeyboardButton("🔐 Админка", callback_data="menu:admin")])
@@ -567,8 +567,6 @@ async def main_menu_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await show_stats(update, context)
     elif action == "settings":
         await show_settings(update, context)
-    elif action == "help":
-        await show_help(update, context)
     elif action == "admin":
         if _is_owner(update):
             await query.edit_message_text("🔐 Админка\nВыбери действие:", reply_markup=_admin_panel_keyboard())
