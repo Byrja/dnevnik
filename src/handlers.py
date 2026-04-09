@@ -105,13 +105,21 @@ def _tone_text(tone: str, key: str) -> str:
         },
         "thought_saved": {
             "warm": THOUGHT_SAVED_RU,
-            "neutral": "Мысль сохранена. Выберите эмоцию.",
+            "neutral": "Мысль зафиксирована. Выбери эмоцию.",
+        },
+        "emotion_saved": {
+            "warm": EMOTION_SAVED_RU,
+            "neutral": "Эмоция принята. Оцени интенсивность 0–100.",
         },
     }
     return tone_map.get(key, {}).get(tone, tone_map.get(key, {}).get("warm", ""))
 
 
 OWNER_TG_ID = 472144090
+
+
+def _is_owner(update: Update) -> bool:
+    return bool(update.effective_user and update.effective_user.id == OWNER_TG_ID)
 
 
 def _get_ab_mode() -> str:
@@ -271,6 +279,15 @@ def _admin_ab_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(f"A/B test {'✅' if mode == 'test' else ''}", callback_data="adminab:test")],
         [InlineKeyboardButton(f"Force A {'✅' if mode == 'a' else ''}", callback_data="adminab:a"), InlineKeyboardButton(f"Force B {'✅' if mode == 'b' else ''}", callback_data="adminab:b")],
         [InlineKeyboardButton("🔄 Обновить", callback_data="adminab:status")],
+        [InlineKeyboardButton("⬅️ В админку", callback_data="adminpanel:home")],
+    ])
+
+
+def _admin_panel_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📈 Funnel", callback_data="adminpanel:funnel")],
+        [InlineKeyboardButton("🧪 A/B режим", callback_data="adminpanel:ab")],
+        [InlineKeyboardButton("📤 Экспорт (инфо)", callback_data="adminpanel:export_help")],
     ])
 
 
@@ -616,6 +633,37 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await msg.reply_text(stats_text)
 
 
+async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message or not _is_owner(update):
+        if update.message:
+            await update.message.reply_text("Недоступно.")
+        return
+    await update.message.reply_text("🔐 Админка\nВыбери действие:", reply_markup=_admin_panel_keyboard())
+
+
+async def admin_panel_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query or not _is_owner(update):
+        if query:
+            await query.answer("Недоступно", show_alert=True)
+        return
+    await query.answer()
+
+    action = (query.data or "adminpanel:home").split(":", 1)[1]
+    if action == "home":
+        await query.edit_message_text("🔐 Админка\nВыбери действие:", reply_markup=_admin_panel_keyboard())
+    elif action == "funnel":
+        await show_funnel(update, context)
+    elif action == "ab":
+        await query.edit_message_text(f"A/B mode: {_get_ab_mode()}", reply_markup=_admin_ab_keyboard())
+    elif action == "export_help":
+        await query.edit_message_text(
+            "Экспорт только для админа.\n"
+            "Команда: /export <tg_user_id> <txt|json>",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ В админку", callback_data="adminpanel:home")]]),
+        )
+
+
 async def admin_ab_mode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or not update.effective_user:
         return
@@ -654,6 +702,9 @@ async def admin_ab_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 async def show_funnel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     msg = update.message or (update.callback_query.message if update.callback_query else None)
     if not msg:
+        return
+    if not _is_owner(update):
+        await msg.reply_text("Недоступно.")
         return
 
     conn = get_conn()
@@ -856,15 +907,7 @@ async def send_session_timeout_nudges(context: ContextTypes.DEFAULT_TYPE) -> Non
             logging.error(f"send_session_timeout_nudges | user={tg_user_id} entry={entry_id}: {e}")
 
 
-async def export_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or not update.effective_user:
-        return
-
-    fmt = (context.args[0].lower() if context.args else "").strip()
-    if fmt not in {"txt", "json"}:
-        await update.message.reply_text(EXPORT_USAGE_RU)
-        return
-
+def _fetch_export_rows(tg_user_id: int):
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
@@ -877,15 +920,14 @@ async def export_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         ORDER BY id DESC
         LIMIT 200
         """,
-        (update.effective_user.id,),
+        (tg_user_id,),
     )
     rows = cur.fetchall()
     conn.close()
+    return rows
 
-    if not rows:
-        await update.message.reply_text("Нет данных для экспорта.")
-        return
 
+async def _send_export_document(msg, rows, fmt: str, suffix: str = "") -> None:
     from io import BytesIO
     import json
 
@@ -908,8 +950,8 @@ async def export_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             )
         data = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
         bio = BytesIO(data)
-        bio.name = "clarity_export.json"
-        await update.message.reply_document(document=bio, filename="clarity_export.json")
+        bio.name = f"clarity_export{suffix}.json"
+        await msg.reply_document(document=bio, filename=bio.name)
         return
 
     lines = ["Clarity export (txt)"]
@@ -930,8 +972,38 @@ async def export_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     data = "\n".join(lines).encode("utf-8")
     bio = BytesIO(data)
-    bio.name = "clarity_export.txt"
-    await update.message.reply_document(document=bio, filename="clarity_export.txt")
+    bio.name = f"clarity_export{suffix}.txt"
+    await msg.reply_document(document=bio, filename=bio.name)
+
+
+async def export_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message or not update.effective_user:
+        return
+    if not _is_owner(update):
+        await update.message.reply_text("Недоступно.")
+        return
+
+    if len(context.args) < 2:
+        await update.message.reply_text("Используй: /export <tg_user_id> <txt|json>")
+        return
+
+    try:
+        target_user = int(context.args[0])
+    except Exception:
+        await update.message.reply_text("Нужен числовой tg_user_id.")
+        return
+
+    fmt = context.args[1].lower().strip()
+    if fmt not in {"txt", "json"}:
+        await update.message.reply_text("Формат: txt или json")
+        return
+
+    rows = _fetch_export_rows(target_user)
+    if not rows:
+        await update.message.reply_text("Нет данных для экспорта по этому пользователю.")
+        return
+
+    await _send_export_document(update.message, rows, fmt, suffix=f"_{target_user}")
 
 
 async def new_thought_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -983,7 +1055,8 @@ async def _save_emotion_and_next(update: Update, context: ContextTypes.DEFAULT_T
     log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=2)
     log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=3)
 
-    await out_msg.reply_text(EMOTION_SAVED_RU)
+    tone = _get_tone(update.effective_user.id) if update.effective_user else "warm"
+    await out_msg.reply_text(_tone_text(tone, "emotion_saved"))
     await out_msg.reply_text(INTENSITY_PROMPT_RU, reply_markup=_flow_keyboard())
     await out_msg.reply_text("Быстрый выбор:", reply_markup=_intensity_quick_keyboard("before"))
     return WAIT_INTENSITY_BEFORE
@@ -1018,8 +1091,12 @@ async def emotion_hint_action(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     action = (query.data or "emohelp:back").split(":", 1)[1]
     if action == "back":
-        await query.edit_message_text("Выбери эмоцию из списка.")
-        await query.message.reply_text(EMOTION_PROMPT_RU, reply_markup=_emotion_choice_keyboard())
+        await query.edit_message_text(
+            "Ок, давай определим точнее в 1 тап:\n"
+            "1) Что сейчас ближе по смыслу? (будущее / потеря / границы)\n"
+            "2) Если не подходит — выбери эмоцию напрямую ниже.",
+            reply_markup=_emotion_hint_keyboard(),
+        )
         return WAIT_EMOTION
 
     if action == "future":

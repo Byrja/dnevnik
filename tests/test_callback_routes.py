@@ -29,7 +29,9 @@ class CallbackRoutesTests(unittest.TestCase):
 
     def test_admin_ab_command_registered(self) -> None:
         src = main_py()
+        self.assertIn('CommandHandler("admin", admin_panel)', src)
         self.assertIn('CommandHandler("admin_ab", admin_ab_mode)', src)
+        self.assertIn('CallbackQueryHandler(admin_panel_action, pattern=r"^adminpanel:(home|funnel|ab|export_help)$")', src)
         self.assertIn('CallbackQueryHandler(admin_ab_action, pattern=r"^adminab:(status|test|a|b)$")', src)
 
     def test_global_menu_text_handler_registered(self) -> None:

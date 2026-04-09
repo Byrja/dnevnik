@@ -31,15 +31,10 @@ HELP_RU = (
     "🎯 Основные:\n"
     "/new — Начать новый разбор мысли\n"
     "/history — Посмотреть историю карточек\n"
-    "/stats — Твоя статистика\n"
-    "/funnel — Конверсия шагов (тех. отчёт)\n"
-    "/admin_ab status|test|a|b — режим A/B (owner)\n\n"
+    "/stats — Твоя статистика\n\n"
     "⚙️ Настройки:\n"
     "/settings — Тон общения (тёплый/нейтральный)\n"
     "/reminders on|off — Включить/выключить напоминания\n\n"
-    "📤 Экспорт:\n"
-    "/export txt — Экспорт в текстовый файл\n"
-    "/export json — Экспорт в JSON\n\n"
     "ℹ️ Другое:\n"
     "/help — Показать эту справку\n"
     "/onboarding — Повторить ознакомление\n\n"
@@ -125,9 +120,9 @@ REMINDER_STATE_TEMPLATE_RU = (
     "Включить/выключить: /reminders on|off"
 )
 EXPORT_USAGE_RU = (
-    f"{EMOJI_HINT} Используй:\n"
-    "• /export txt — текстовый файл\n"
-    "• /export json — JSON файл"
+    f"{EMOJI_HINT} Используй (admin):\n"
+    "• /export <tg_user_id> txt\n"
+    "• /export <tg_user_id> json"
 )
 
 # ============================================================

@@ -14,6 +14,8 @@ from db import init_db
 from handlers import (
     admin_ab_action,
     admin_ab_mode,
+    admin_panel,
+    admin_panel_action,
     apply_alternative_hint,
     cancel_flow,
     choose_intensity_after,
@@ -65,7 +67,9 @@ def build_app(token: str) -> Application:
     app.add_handler(CommandHandler("help", show_help))
     app.add_handler(CommandHandler("stats", show_stats))
     app.add_handler(CommandHandler("funnel", show_funnel))
+    app.add_handler(CommandHandler("admin", admin_panel))
     app.add_handler(CommandHandler("admin_ab", admin_ab_mode))
+    app.add_handler(CallbackQueryHandler(admin_panel_action, pattern=r"^adminpanel:(home|funnel|ab|export_help)$"))
     app.add_handler(CallbackQueryHandler(admin_ab_action, pattern=r"^adminab:(status|test|a|b)$"))
     app.add_handler(CallbackQueryHandler(consent_accept, pattern="^consent_accept$"))
     app.add_handler(CallbackQueryHandler(set_tone, pattern=r"^tone:(warm|neutral)$"))
