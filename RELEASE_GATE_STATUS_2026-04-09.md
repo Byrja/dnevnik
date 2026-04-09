@@ -8,16 +8,16 @@ Updated: 2026-04-09 09:14:00 UTC
 - [x] `systemctl --user is-active cbt-clarity.service` = active
 
 ## Manual smoke checks
-- [ ] /start single menu card
-- [ ] menu:new -> next text processed
-- [ ] Step 3 quick buttons
-- [ ] Step 8 quick buttons
-- [ ] Не уверен -> details -> pick end-to-end
+- [x] /start single menu card
+- [x] menu:new -> next text processed
+- [x] Step 3 quick buttons
+- [x] Step 8 quick buttons
+- [x] Не уверен -> details -> pick end-to-end
 
 ## UX/safety checks
-- [ ] No extra chat spam in inline flow
-- [ ] Menu matches UI_COPY_LOCK.md
-- [ ] Crisis-safe branch still valid
+- [x] No extra chat spam in inline flow
+- [x] Menu matches UI_COPY_LOCK.md
+- [x] Crisis-safe branch still valid
 
 ## Decision
-Current gate: **NO-GO (manual smoke pending)**
+Current gate: **GO (owner smoke confirmed)**
