@@ -536,12 +536,30 @@ async def show_funnel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     completion_rate = (completed / started * 100) if started else 0.0
 
+    cur = get_conn().cursor()
+    cur.execute("SELECT COUNT(*) FROM events WHERE event_name = 'session_started' AND meta_json LIKE '%\"variant\": \"A\"%'")
+    started_a = int(cur.fetchone()[0] or 0)
+    cur.execute("SELECT COUNT(*) FROM events WHERE event_name = 'session_started' AND meta_json LIKE '%\"variant\": \"B\"%'")
+    started_b = int(cur.fetchone()[0] or 0)
+    cur.execute("SELECT COUNT(*) FROM events WHERE event_name = 'session_completed' AND meta_json LIKE '%\"variant\": \"A\"%'")
+    completed_a = int(cur.fetchone()[0] or 0)
+    cur.execute("SELECT COUNT(*) FROM events WHERE event_name = 'session_completed' AND meta_json LIKE '%\"variant\": \"B\"%'")
+    completed_b = int(cur.fetchone()[0] or 0)
+    cur.connection.close()
+
+    rate_a = (completed_a / started_a * 100) if started_a else 0.0
+    rate_b = (completed_b / started_b * 100) if started_b else 0.0
+
     lines = [
         "📈 Funnel (all users)",
         "───────────────────",
         f"Sessions started: {started}",
         f"Sessions completed: {completed}",
         f"Completion rate: {completion_rate:.1f}%",
+        "",
+        "A/B Step 1 variants:",
+        f"A: {completed_a}/{started_a} ({rate_a:.1f}%)",
+        f"B: {completed_b}/{started_b} ({rate_b:.1f}%)",
         "",
         "Step completions:",
     ]
@@ -1163,8 +1181,10 @@ async def _finalize_with_after_intensity(update: Update, context: ContextTypes.D
     delta = before - after
     next_step = _next_step_recommendation(delta=delta, after=after, distortion=distortion)
     anchor = _anchor_phrase(after=after, delta=delta)
-    log_event("step_completed", tg_user_id=update.effective_user.id if update.effective_user else None, step=8)
-    log_event("session_completed", tg_user_id=update.effective_user.id if update.effective_user else None, meta={"delta": delta, "before": before, "after": after})
+    user_id = update.effective_user.id if update.effective_user else None
+    variant = _ab_prompt_variant(user_id) if user_id is not None else None
+    log_event("step_completed", tg_user_id=user_id, step=8)
+    log_event("session_completed", tg_user_id=user_id, meta={"delta": delta, "before": before, "after": after, "variant": variant})
     if update.message:
         result_text = _format_result(before=before, after=after, delta=delta, next_step=next_step, anchor=anchor)
         await update.message.reply_text(result_text, reply_markup=_result_actions_inline())
