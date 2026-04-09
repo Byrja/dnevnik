@@ -307,6 +307,10 @@ def _admin_panel_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
+def _admin_back_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ В админку", callback_data="adminpanel:home")]])
+
+
 def _emotion_choice_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [["Тревога", "Грусть", "Злость"], ["Стыд", "Вина", "Раздражение"], ["Страх", "Пустота", "Другое"], ["Не могу определиться"]],
@@ -804,9 +808,9 @@ async def show_funnel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     text = "\n".join(lines)
     if update.callback_query:
-        await update.callback_query.edit_message_text(text, reply_markup=_nav_home_inline())
+        await update.callback_query.edit_message_text(text, reply_markup=_admin_back_keyboard())
     else:
-        await msg.reply_text(text)
+        await msg.reply_text(text, reply_markup=_admin_back_keyboard())
 
 
 async def set_followup_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
