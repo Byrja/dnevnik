@@ -185,6 +185,14 @@ def _flow_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
+def _intensity_quick_keyboard(kind: str) -> InlineKeyboardMarkup:
+    prefix = "int_before" if kind == "before" else "int_after"
+    values = [20, 40, 60, 80, 100]
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton(str(v), callback_data=f"{prefix}:{v}") for v in values]]
+    )
+
+
 async def _send_main_menu(msg) -> None:
     await msg.reply_text(MENU_RU, reply_markup=_main_menu_inline())
 
@@ -615,26 +623,14 @@ async def receive_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     await update.message.reply_text(EMOTION_SAVED_RU)
     await update.message.reply_text(INTENSITY_PROMPT_RU, reply_markup=_flow_keyboard())
+    await update.message.reply_text("Быстрый выбор:", reply_markup=_intensity_quick_keyboard("before"))
     return WAIT_INTENSITY_BEFORE
 
 
-async def receive_intensity_before(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    if not update.message or not update.effective_user:
-        return ConversationHandler.END
-
-    raw = (update.message.text or "").strip()
-    if not raw.isdigit():
-        await update.message.reply_text("Нужно число от 0 до 100.")
-        return WAIT_INTENSITY_BEFORE
-
-    value = int(raw)
-    if value < 0 or value > 100:
-        await update.message.reply_text("Только диапазон 0–100.")
-        return WAIT_INTENSITY_BEFORE
-
+async def _save_intensity_before_and_next(update: Update, context: ContextTypes.DEFAULT_TYPE, value: int, msg) -> int:
     draft = context.user_data.get("draft_entry")
-    if not draft or not draft.get("thought_text"):
-        await update.message.reply_text("Черновик не найден. Нажми «Новая мысль» и начни заново.")
+    if not draft or not draft.get("thought_text") or not update.effective_user:
+        await msg.reply_text("Черновик не найден. Нажми «Новая мысль» и начни заново.")
         return ConversationHandler.END
 
     draft["intensity_before"] = value
@@ -674,9 +670,45 @@ async def receive_intensity_before(update: Update, context: ContextTypes.DEFAULT
         one_time_keyboard=True,
     )
 
-    await update.message.reply_text(EMOTION_STEP_DONE_RU)
-    await update.message.reply_text(DISTORTION_PROMPT_RU, reply_markup=distortion_keyboard)
+    await msg.reply_text(EMOTION_STEP_DONE_RU)
+    await msg.reply_text(DISTORTION_PROMPT_RU, reply_markup=distortion_keyboard)
     return WAIT_DISTORTION
+
+
+async def receive_intensity_before(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not update.message:
+        return ConversationHandler.END
+
+    raw = (update.message.text or "").strip()
+    if not raw.isdigit():
+        await update.message.reply_text("Нужно число от 0 до 100.")
+        return WAIT_INTENSITY_BEFORE
+
+    value = int(raw)
+    if value < 0 or value > 100:
+        await update.message.reply_text("Только диапазон 0–100.")
+        return WAIT_INTENSITY_BEFORE
+
+    return await _save_intensity_before_and_next(update, context, value, update.message)
+
+
+async def choose_intensity_before(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    if not query:
+        return WAIT_INTENSITY_BEFORE
+    await query.answer()
+
+    try:
+        value = int((query.data or "int_before:0").split(":", 1)[1])
+    except Exception:
+        await query.message.reply_text("Не поняла значение. Введи число 0–100.")
+        return WAIT_INTENSITY_BEFORE
+
+    if value < 0 or value > 100:
+        await query.message.reply_text("Только диапазон 0–100.")
+        return WAIT_INTENSITY_BEFORE
+
+    return await _save_intensity_before_and_next(update, context, value, query.message)
 
 
 async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -886,6 +918,7 @@ async def receive_alternative_thought(update: Update, context: ContextTypes.DEFA
     context.user_data["draft_entry"] = draft
 
     await update.message.reply_text(INTENSITY_AFTER_PROMPT_RU, reply_markup=_flow_keyboard())
+    await update.message.reply_text("Быстрый выбор:", reply_markup=_intensity_quick_keyboard("after"))
     return WAIT_INTENSITY_AFTER
 
 
@@ -929,6 +962,7 @@ async def apply_alternative_hint(update: Update, context: ContextTypes.DEFAULT_T
 
     await query.message.reply_text(f"Подсказка:\n{hint_text}")
     await query.message.reply_text(INTENSITY_AFTER_PROMPT_RU, reply_markup=_flow_keyboard())
+    await query.message.reply_text("Быстрый выбор:", reply_markup=_intensity_quick_keyboard("after"))
 
 
 async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -949,6 +983,31 @@ async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_
     entry_id = draft.get("entry_id")
     if not entry_id:
         await update.message.reply_text("Не нашла активную запись. Нажми «Новая мысль» и начни заново.")
+        return ConversationHandler.END
+
+    return await _finalize_with_after_intensity(update, context, after)
+
+
+async def choose_intensity_after(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    if not query:
+        return WAIT_INTENSITY_AFTER
+    await query.answer()
+
+    try:
+        after = int((query.data or "int_after:0").split(":", 1)[1])
+    except Exception:
+        await query.message.reply_text("Не поняла значение. Введи число 0–100.")
+        return WAIT_INTENSITY_AFTER
+
+    if after < 0 or after > 100:
+        await query.message.reply_text("Только диапазон 0–100.")
+        return WAIT_INTENSITY_AFTER
+
+    draft = context.user_data.get("draft_entry", {})
+    entry_id = draft.get("entry_id")
+    if not entry_id:
+        await query.message.reply_text("Не нашла активную запись. Нажми «Новая мысль» и начни заново.")
         return ConversationHandler.END
 
     return await _finalize_with_after_intensity(update, context, after)
