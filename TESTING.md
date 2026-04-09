@@ -1,9 +1,9 @@
 # Smoke test (MVP)
 
 ## Автопроверка (локально)
-- `python -m py_compile src/*.py`
-- `python -m unittest tests/test_callback_routes.py`
-- `python src/main.py` запускается без падения (polling)
+- `.venv/bin/python -m py_compile src/*.py`
+- `.venv/bin/python -m unittest tests/test_callback_routes.py tests/test_flow_happy_path.py`
+- `.venv/bin/python src/main.py` запускается без падения (polling)
 - SQLite содержит таблицы: `users`, `settings`, `entries`
 
 ## Ручной Telegram smoke
