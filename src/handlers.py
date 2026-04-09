@@ -31,6 +31,7 @@ from texts import (
     EVIDENCE_FOR_PROMPT_RU,
     EVIDENCE_STEP_DONE_RU,
     HELP_RU,
+    HELP_RU_NEUTRAL,
     INTENSITY_AFTER_PROMPT_RU,
     INTENSITY_PROMPT_RU,
     EXPORT_USAGE_RU,
@@ -449,6 +450,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def _send_onboarding(chat_message) -> None:
+    uid = chat_message.from_user.id if getattr(chat_message, "from_user", None) else None
+    tone = _get_tone(uid) if uid is not None else "warm"
+    if tone == "neutral":
+        await chat_message.reply_text(
+            "Onboarding\n"
+            "───────────────────\n"
+            "1) Мысль -> 2) Эмоция/интенсивность -> 3) Искажение -> 4) Факты -> 5) Альтернатива -> 6) После.\n"
+            "Цель: снизить накал и получить следующий шаг."
+        )
+        return
     await chat_message.reply_text(ONBOARDING_1_RU)
     await chat_message.reply_text(ONBOARDING_2_RU)
     await chat_message.reply_text(ONBOARDING_3_RU)
@@ -521,10 +532,13 @@ async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     msg = update.message or (update.callback_query.message if update.callback_query else None)
     if not msg:
         return
+    uid = update.effective_user.id if update.effective_user else None
+    tone = _get_tone(uid) if uid is not None else "warm"
+    help_text = HELP_RU_NEUTRAL if tone == "neutral" else HELP_RU
     if update.callback_query:
-        await update.callback_query.edit_message_text(HELP_RU, parse_mode=None)
+        await update.callback_query.edit_message_text(help_text, parse_mode=None)
     else:
-        await msg.reply_text(HELP_RU, parse_mode=None)
+        await msg.reply_text(help_text, parse_mode=None)
 
 
 async def main_menu_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
