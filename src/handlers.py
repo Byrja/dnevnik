@@ -410,11 +410,19 @@ def _menu_intro_text_for_user(tg_user_id: int | None) -> str:
         conn.close()
 
     if completed == 0:
-        suffix = "Первый разбор займет 3–7 минут и даст конкретный следующий шаг."
+        progress_line = "Первый разбор займет 3–7 минут и даст конкретный следующий шаг."
     else:
-        suffix = f"У тебя уже {completed} завершённых разборов. Держим темп и качество."
+        progress_line = f"У тебя уже {completed} завершённых разборов — это сильная база."
 
-    return f"🧠 Clarity CBT\n{greet}.\n{suffix}\n\nВыбери действие:"
+    support_line = "Если накрывает, разложим мысль по шагам и вернём контроль без лишней драмы."
+
+    return (
+        f"🧠 Clarity CBT\n"
+        f"{greet}.\n"
+        f"{progress_line}\n"
+        f"{support_line}\n\n"
+        "Выбери действие:"
+    )
 async def _send_main_menu(msg) -> None:
     user_id = msg.from_user.id if getattr(msg, 'from_user', None) else None
     await msg.reply_text(_menu_intro_text_for_user(user_id), reply_markup=_main_menu_inline(user_id))
