@@ -1013,6 +1013,16 @@ def _next_step_recommendation(delta: int, after: int, distortion: str) -> str:
     return "Сдвиг пока небольшой — это нормально. Попробуй конкретизировать факты «за/против» и сделать второй проход."
 
 
+def _anchor_phrase(after: int, delta: int) -> str:
+    if delta >= 20:
+        return "Мне уже стало легче. Я могу продолжать спокойно и по шагам."
+    if delta > 0:
+        return "Я двигаюсь в правильную сторону, даже если маленькими шагами."
+    if after <= 40:
+        return "Я удерживаю опору. Дальше — один конкретный шаг."
+    return "Сейчас непросто, и это нормально. Я выбираю действовать мягко и по фактам."
+
+
 async def _finalize_with_after_intensity(update: Update, context: ContextTypes.DEFAULT_TYPE, after: int) -> int:
     draft = context.user_data.get("draft_entry", {})
     entry_id = draft.get("entry_id")
@@ -1033,9 +1043,9 @@ async def _finalize_with_after_intensity(update: Update, context: ContextTypes.D
 
     delta = before - after
     next_step = _next_step_recommendation(delta=delta, after=after, distortion=distortion)
+    anchor = _anchor_phrase(after=after, delta=delta)
     if update.message:
-        # Use the new formatted result with visual elements
-        result_text = _format_result(before=before, after=after, delta=delta, next_step=next_step)
+        result_text = _format_result(before=before, after=after, delta=delta, next_step=next_step, anchor=anchor)
         await update.message.reply_text(result_text, reply_markup=_main_menu_inline())
 
     context.user_data.pop("draft_entry", None)

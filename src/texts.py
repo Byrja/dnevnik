@@ -262,7 +262,7 @@ def _progress_bar(value: int, width: int = 10) -> str:
     filled = int(value / 100 * width)
     return PROGRESS_BAR_FULL * filled + PROGRESS_BAR_EMPTY * (width - filled)
 
-def _format_result(before: int, after: int, delta: int, next_step: str) -> str:
+def _format_result(before: int, after: int, delta: int, next_step: str, anchor: str) -> str:
     """Format final card with clear outcome + one concrete action."""
     bar_before = _progress_bar(before)
     bar_after = _progress_bar(after)
@@ -285,7 +285,9 @@ def _format_result(before: int, after: int, delta: int, next_step: str) -> str:
         f"{improvement}\n"
         "━━━━━━━━━━━━━━━━━━━\n"
         "🎯 Что сделать сейчас (10 минут):\n"
-        f"{next_step}"
+        f"{next_step}\n\n"
+        "🧷 Якорь на день:\n"
+        f"{anchor}"
     )
 
 CARD_DONE_TEMPLATE_RU = "✅ Карточка завершена.\nДо: {before}/100\nПосле: {after}/100\nΔ: {delta}\n\nСледующий шаг: {next_step}"
