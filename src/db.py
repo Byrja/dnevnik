@@ -53,6 +53,18 @@ def init_db():
     )
     ''')
 
+    cur.execute('''
+    CREATE TABLE IF NOT EXISTS events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_name TEXT NOT NULL,
+        tg_user_id INTEGER,
+        session_id TEXT,
+        step INTEGER,
+        meta_json TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
     # Lightweight migrations
     cur.execute("PRAGMA table_info(settings)")
     cols = {r[1] for r in cur.fetchall()}
