@@ -569,7 +569,7 @@ async def new_thought_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if not msg or not update.effective_user:
         return ConversationHandler.END
     tone = _get_tone(update.effective_user.id)
-    await msg.reply_text(f"Шаг 1/8 • Мысль\n{_tone_text(tone, 'thought_prompt')}\n\n{CANCEL_HINT_RU}", reply_markup=_flow_keyboard())
+    await msg.reply_text(f"{_tone_text(tone, 'thought_prompt')}\n\n{CANCEL_HINT_RU}", reply_markup=_flow_keyboard())
     return WAIT_THOUGHT
 
 
@@ -595,7 +595,7 @@ async def receive_thought_text(update: Update, context: ContextTypes.DEFAULT_TYP
         one_time_keyboard=True,
     )
     tone = _get_tone(update.effective_user.id)
-    await update.message.reply_text(f"{_tone_text(tone, 'thought_saved')}\n\nШаг 2/8 • Эмоция\n{EMOTION_PROMPT_RU}", reply_markup=emotion_keyboard)
+    await update.message.reply_text(f"{_tone_text(tone, 'thought_saved')}\n\n{EMOTION_PROMPT_RU}", reply_markup=emotion_keyboard)
     return WAIT_EMOTION
 
 
@@ -614,7 +614,7 @@ async def receive_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     context.user_data["draft_entry"] = draft
 
     await update.message.reply_text(EMOTION_SAVED_RU)
-    await update.message.reply_text(f"Шаг 3/8 • Интенсивность до\n{INTENSITY_PROMPT_RU}", reply_markup=_flow_keyboard())
+    await update.message.reply_text(INTENSITY_PROMPT_RU, reply_markup=_flow_keyboard())
     return WAIT_INTENSITY_BEFORE
 
 
@@ -675,7 +675,7 @@ async def receive_intensity_before(update: Update, context: ContextTypes.DEFAULT
     )
 
     await update.message.reply_text(EMOTION_STEP_DONE_RU)
-    await update.message.reply_text(f"Шаг 4/8 • Искажение\n{DISTORTION_PROMPT_RU}", reply_markup=distortion_keyboard)
+    await update.message.reply_text(DISTORTION_PROMPT_RU, reply_markup=distortion_keyboard)
     return WAIT_DISTORTION
 
 
@@ -710,7 +710,7 @@ async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data["draft_entry"] = draft
 
     await update.message.reply_text(DISTORTION_SAVED_RU)
-    await update.message.reply_text(f"Шаг 5/8 • Факты за\n{EVIDENCE_FOR_PROMPT_RU}", reply_markup=_flow_keyboard())
+    await update.message.reply_text(EVIDENCE_FOR_PROMPT_RU, reply_markup=_flow_keyboard())
     return WAIT_EVIDENCE_FOR
 
 
@@ -740,7 +740,7 @@ async def receive_evidence_for(update: Update, context: ContextTypes.DEFAULT_TYP
     draft["evidence_for"] = evidence_for
     context.user_data["draft_entry"] = draft
 
-    await update.message.reply_text(f"Шаг 6/8 • Факты против\n{EVIDENCE_AGAINST_PROMPT_RU}", reply_markup=_flow_keyboard())
+    await update.message.reply_text(EVIDENCE_AGAINST_PROMPT_RU, reply_markup=_flow_keyboard())
     return WAIT_EVIDENCE_AGAINST
 
 
@@ -790,7 +790,7 @@ async def receive_evidence_against(update: Update, context: ContextTypes.DEFAULT
     context.user_data["draft_entry"] = draft
 
     await update.message.reply_text(EVIDENCE_STEP_DONE_RU)
-    await update.message.reply_text(f"Шаг 7/8 • Альтернативная мысль\n{ALTERNATIVE_PROMPT_RU}", reply_markup=_flow_keyboard())
+    await update.message.reply_text(ALTERNATIVE_PROMPT_RU, reply_markup=_flow_keyboard())
     await update.message.reply_text(ALTERNATIVE_HINT_PROMPT_RU, reply_markup=_alternative_hint_keyboard())
     return WAIT_ALTERNATIVE_THOUGHT
 
@@ -872,7 +872,7 @@ async def receive_alternative_thought(update: Update, context: ContextTypes.DEFA
     draft["alternative_thought"] = alt
     context.user_data["draft_entry"] = draft
 
-    await update.message.reply_text(f"Шаг 8/8 • Интенсивность после\n{INTENSITY_AFTER_PROMPT_RU}", reply_markup=_flow_keyboard())
+    await update.message.reply_text(INTENSITY_AFTER_PROMPT_RU, reply_markup=_flow_keyboard())
     return WAIT_INTENSITY_AFTER
 
 
@@ -902,7 +902,7 @@ async def apply_alternative_hint(update: Update, context: ContextTypes.DEFAULT_T
     context.user_data["draft_entry"] = draft
 
     await query.message.reply_text(f"Подсказка:\n{hint_text}")
-    await query.message.reply_text(f"Шаг 8/8 • Интенсивность после\n{INTENSITY_AFTER_PROMPT_RU}", reply_markup=_flow_keyboard())
+    await query.message.reply_text(INTENSITY_AFTER_PROMPT_RU, reply_markup=_flow_keyboard())
 
 
 async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

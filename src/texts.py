@@ -4,7 +4,7 @@
 # Progress bar characters
 PROGRESS_BAR_FULL = "█"
 PROGRESS_BAR_EMPTY = "░"
-INTENSITY_SCALE = "0———————25———————50———————75———————100"
+INTENSITY_SCALE = "0 · 25 · 50 · 75 · 100"
 
 # Emojis for better visual hierarchy
 EMOJI_STEP = "👣"
@@ -192,7 +192,7 @@ INTENSITY_PROMPT_RU = (
     f"{EMOJI_EMOTION} Шаг 3 • Интенсивность\n"
     "━━━━━━━━━━━━━━━━━━━\n"
     "Насколько сильна эта эмоция?\n\n"
-    f"_{INTENSITY_SCALE}_\n\n"
+    f"{INTENSITY_SCALE}\n\n"
     "Введи число от 0 до 100"
 )
 
@@ -246,7 +246,7 @@ INTENSITY_AFTER_PROMPT_RU = (
     f"{EMOJI_EMOTION} Шаг 8 • Как сейчас?\n"
     "━━━━━━━━━━━━━━━━━━━\n"
     "Оцени интенсивность эмоции ПОСЛЕ разбора.\n\n"
-    f"_{INTENSITY_SCALE}_\n\n"
+    f"{INTENSITY_SCALE}\n\n"
     "Введи число от 0 до 100"
 )
 
