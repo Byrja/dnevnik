@@ -23,8 +23,8 @@ class CallbackRoutesTests(unittest.TestCase):
 
     def test_distortion_callback_routes_exist(self) -> None:
         src = main_py()
-        self.assertIn("dist_info:", src)
-        self.assertIn("dist_pick:", src)
+        self.assertIn("dist_info:(back|catastrophizing|mind_reading|black_white|discounting_positive|overgeneralization|personalization|emotional_reasoning|should_statements|labeling|fortune_telling|other)", src)
+        self.assertIn("dist_pick:(catastrophizing|mind_reading|black_white|discounting_positive|overgeneralization|personalization|emotional_reasoning|should_statements|labeling|fortune_telling|other)", src)
 
     def test_intensity_quick_callbacks_exist(self) -> None:
         src = main_py()
