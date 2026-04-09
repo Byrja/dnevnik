@@ -739,6 +739,17 @@ async def admin_user_view(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         (uid,),
     )
     stats = cur.fetchone()
+    cur.execute(
+        """
+        SELECT created_at, thought_text, emotion_label, intensity_before, intensity_after
+        FROM entries
+        WHERE tg_user_id = ? AND is_completed = 1
+        ORDER BY id DESC
+        LIMIT 3
+        """,
+        (uid,),
+    )
+    recent = cur.fetchall()
     conn.close()
 
     if not u:
@@ -747,6 +758,17 @@ async def admin_user_view(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     full_name, username, created_at = u
     total, completed, last_entry = stats if stats else (0, 0, None)
+
+    recent_lines = []
+    for i, r in enumerate(recent, 1):
+        dt, thought, emo, before, after = r
+        t = (thought or "—").strip().replace("\n", " ")
+        if len(t) > 80:
+            t = t[:77] + "..."
+        recent_lines.append(
+            f"{i}) {dt or '—'} | {emo or '—'} | {before if before is not None else '—'}→{after if after is not None else '—'}\n   {t}"
+        )
+    recent_block = "\n".join(recent_lines) if recent_lines else "нет завершённых записей"
 
     text = (
         "👤 Карточка пользователя\n"
@@ -757,12 +779,15 @@ async def admin_user_view(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         f"Создан: {created_at or '—'}\n\n"
         f"Карточек всего: {total or 0}\n"
         f"Завершено: {completed or 0}\n"
-        f"Последняя активность: {last_entry or '—'}"
+        f"Последняя активность: {last_entry or '—'}\n\n"
+        "Последние записи:\n"
+        f"{recent_block}"
     )
 
     await query.edit_message_text(
         text,
         reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📤 Экспорт TXT", callback_data=f"adminexport:{uid}:txt"), InlineKeyboardButton("📤 Экспорт JSON", callback_data=f"adminexport:{uid}:json")],
             [InlineKeyboardButton("⬅️ К списку", callback_data="adminpanel:users")],
             [InlineKeyboardButton("⬅️ В админку", callback_data="adminpanel:home")],
         ]),
@@ -1104,6 +1129,31 @@ async def _send_export_document(msg, rows, fmt: str, suffix: str = "") -> None:
     bio = BytesIO(data)
     bio.name = f"clarity_export{suffix}.txt"
     await msg.reply_document(document=bio, filename=bio.name)
+
+
+async def admin_export_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query or not _is_owner(update):
+        return
+    await query.answer()
+
+    try:
+        _, uid_s, fmt = (query.data or "adminexport:0:txt").split(":", 2)
+        target_user = int(uid_s)
+    except Exception:
+        await query.message.reply_text("Не удалось выполнить экспорт.")
+        return
+
+    if fmt not in {"txt", "json"}:
+        await query.message.reply_text("Неизвестный формат экспорта.")
+        return
+
+    rows = _fetch_export_rows(target_user)
+    if not rows:
+        await query.message.reply_text("Нет данных для экспорта по этому пользователю.")
+        return
+
+    await _send_export_document(query.message, rows, fmt, suffix=f"_{target_user}")
 
 
 async def export_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

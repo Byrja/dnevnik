@@ -15,6 +15,7 @@ from handlers import (
     admin_ab_action,
     admin_ab_mode,
     OWNER_TG_ID,
+    admin_export_action,
     admin_panel,
     admin_panel_action,
     admin_user_view,
@@ -76,6 +77,7 @@ def build_app(token: str) -> Application:
     app.add_handler(CommandHandler("export", export_progress, filters=owner_filter))
     app.add_handler(CallbackQueryHandler(admin_panel_action, pattern=r"^adminpanel:(home|funnel|users|ab|export_help)$"))
     app.add_handler(CallbackQueryHandler(admin_user_view, pattern=r"^adminuser:view:[0-9]+$"))
+    app.add_handler(CallbackQueryHandler(admin_export_action, pattern=r"^adminexport:[0-9]+:(txt|json)$"))
     app.add_handler(CallbackQueryHandler(admin_ab_action, pattern=r"^adminab:(status|test|a|b)$"))
     app.add_handler(CallbackQueryHandler(consent_accept, pattern="^consent_accept$"))
     app.add_handler(CallbackQueryHandler(set_tone, pattern=r"^tone:(warm|neutral)$"))
