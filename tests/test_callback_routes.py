@@ -12,6 +12,11 @@ class CallbackRoutesTests(unittest.TestCase):
         src = main_py()
         self.assertRegex(src, r"CallbackQueryHandler\(new_thought_entry, pattern=r\"\^menu:new\$\"\)")
 
+    def test_menu_new_is_in_conversation_entry_points(self) -> None:
+        src = main_py()
+        self.assertIn("entry_points=[", src)
+        self.assertIn("CallbackQueryHandler(new_thought_entry, pattern=r\"^menu:new$\")", src)
+
     def test_menu_callback_routes_exist(self) -> None:
         src = main_py()
         self.assertIn("menu:(history|stats|settings|help)", src)
