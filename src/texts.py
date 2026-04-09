@@ -111,7 +111,7 @@ SETTINGS_PROMPT_RU = (
     "━━━━━━━━━━━━━━━\n"
     "Выбери тон общения:"
 )
-SETTINGS_SAVED_TEMPLATE_RU = f"{EMOJI_OK} Тон общения обновлён: {tone_label}"
+SETTINGS_SAVED_TEMPLATE_RU = f"{EMOJI_OK} Тон общения обновлён: {{tone_label}}"
 REMINDER_NUDGE_RU = (
     f"{EMOJI_SMILEY} Привет! Пришло время для небольшого CBT-разбора.\n"
     "Займёт всего 3-5 минут — нажми «Новая мысль» когда будешь готов."
@@ -123,7 +123,7 @@ SESSION_TIMEOUT_NUDGE_RU = (
     "Если неактуально, нажми «В меню» и начни новую мысль позже."
 )
 REMINDER_STATE_TEMPLATE_RU = (
-    f"{EMOJI_SETTINGS} Напоминания: {state}\n"
+    f"{EMOJI_SETTINGS} Напоминания: {{state}}\n"
     "Включить/выключить: /reminders on|off"
 )
 EXPORT_USAGE_RU = (
