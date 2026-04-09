@@ -32,11 +32,28 @@ class FakeMessage:
         self.answers.append({"text": text, "reply_markup": reply_markup, "parse_mode": parse_mode})
 
 
+class FakeCallbackQuery:
+    def __init__(self, user: FakeUser, data: str, message: FakeMessage) -> None:
+        self.from_user = user
+        self.data = data
+        self.message = message
+
+    async def answer(self):
+        return None
+
+    async def edit_message_text(self, text: str, reply_markup=None, parse_mode=None):
+        self.message.answers.append({"text": text, "reply_markup": reply_markup, "parse_mode": parse_mode, "edited": True})
+
+
 class FakeUpdate:
-    def __init__(self, user: FakeUser, text: str = "") -> None:
+    def __init__(self, user: FakeUser, text: str = "", callback_data: str | None = None, callback_message: FakeMessage | None = None) -> None:
         self.effective_user = user
-        self.message = FakeMessage(user, text)
-        self.callback_query = None
+        self.message = FakeMessage(user, text) if callback_data is None else None
+        self.callback_query = (
+            FakeCallbackQuery(user, callback_data, callback_message or FakeMessage(user, ""))
+            if callback_data is not None
+            else None
+        )
 
 
 class FakeContext:
@@ -99,6 +116,27 @@ class FlowHappyPathTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row[0], 1)
         self.assertEqual(row[1], 60)
         self.assertEqual(row[2], 35)
+
+    async def test_callback_edge_path_intensity_and_distortion_pick(self) -> None:
+        user = FakeUser()
+        ctx = FakeContext()
+
+        await handlers.new_thought_entry(FakeUpdate(user, "/new"), ctx)
+        await handlers.receive_thought_text(FakeUpdate(user, "Я не справлюсь"), ctx)
+        await handlers.receive_emotion(FakeUpdate(user, "Тревога"), ctx)
+
+        cb_msg = FakeMessage(user, "")
+        state = await handlers.choose_intensity_before(
+            FakeUpdate(user, callback_data="int_before:60", callback_message=cb_msg),
+            ctx,
+        )
+        self.assertEqual(state, handlers.WAIT_DISTORTION)
+
+        state = await handlers.distortion_pick_action(
+            FakeUpdate(user, callback_data="dist_pick:catastrophizing", callback_message=cb_msg),
+            ctx,
+        )
+        self.assertEqual(state, handlers.WAIT_EVIDENCE_FOR)
 
 
 if __name__ == "__main__":
