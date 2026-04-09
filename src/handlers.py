@@ -223,6 +223,16 @@ def _main_menu_inline() -> InlineKeyboardMarkup:
     ])
 
 
+def _nav_home_inline() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[InlineKeyboardButton("🏠 В меню", callback_data="menu:home")]])
+
+
+def _nav_back_home_inline(back_cb: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("⬅️ Назад", callback_data=back_cb), InlineKeyboardButton("🏠 В меню", callback_data="menu:home")]]
+    )
+
+
 def _distortion_choice_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
@@ -282,6 +292,10 @@ def _intensity_quick_keyboard(kind: str) -> InlineKeyboardMarkup:
 
 async def _send_main_menu(msg) -> None:
     await msg.reply_text(MENU_RU, reply_markup=_main_menu_inline())
+
+
+async def _edit_to_main_menu(query) -> None:
+    await query.edit_message_text(MENU_RU, reply_markup=_main_menu_inline())
 
 
 async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -345,7 +359,11 @@ async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         ]
     )
     if update.callback_query:
-        await update.callback_query.edit_message_text(SETTINGS_PROMPT_RU, reply_markup=kb)
+        await update.callback_query.edit_message_text(SETTINGS_PROMPT_RU, reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Тёплый", callback_data="tone:warm")],
+            [InlineKeyboardButton("Нейтральный", callback_data="tone:neutral")],
+            [InlineKeyboardButton("🏠 В меню", callback_data="menu:home")],
+        ]))
     else:
         await msg.reply_text(SETTINGS_PROMPT_RU, reply_markup=kb)
 
@@ -370,7 +388,7 @@ async def set_tone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     conn.close()
 
     label = "тёплый" if tone == "warm" else "нейтральный"
-    await query.edit_message_text(SETTINGS_SAVED_TEMPLATE_RU.format(tone_label=label))
+    await query.edit_message_text(SETTINGS_SAVED_TEMPLATE_RU.format(tone_label=label), reply_markup=_nav_home_inline())
 
 
 async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -379,7 +397,7 @@ async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not msg:
         return
     if update.callback_query:
-        await update.callback_query.edit_message_text(HELP_RU, parse_mode=None)
+        await update.callback_query.edit_message_text(HELP_RU, parse_mode=None, reply_markup=_nav_home_inline())
     else:
         await msg.reply_text(HELP_RU, parse_mode=None)
 
@@ -403,6 +421,8 @@ async def main_menu_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await show_settings(update, context)
     elif action == "help":
         await show_help(update, context)
+    elif action == "home":
+        await _edit_to_main_menu(query)
 
 
 async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -423,7 +443,7 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if total == 0:
         conn.close()
         if update.callback_query:
-            await update.callback_query.edit_message_text(STATS_EMPTY_RU)
+            await update.callback_query.edit_message_text(STATS_EMPTY_RU, reply_markup=_nav_home_inline())
         else:
             await msg.reply_text(STATS_EMPTY_RU)
         return
@@ -492,7 +512,7 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         top_emotions=top_emotions_str,
     )
     if update.callback_query:
-        await update.callback_query.edit_message_text(stats_text)
+        await update.callback_query.edit_message_text(stats_text, reply_markup=_nav_home_inline())
     else:
         await msg.reply_text(stats_text)
 
@@ -1253,7 +1273,7 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     if not rows:
         if update.callback_query:
-            await update.callback_query.edit_message_text(HISTORY_EMPTY_RU)
+            await update.callback_query.edit_message_text(HISTORY_EMPTY_RU, reply_markup=_nav_home_inline())
         else:
             await msg.reply_text(HISTORY_EMPTY_RU)
         return
@@ -1287,6 +1307,6 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     lines.append(f"\n{HISTORY_FILTER_HINT_RU}")
     text = "\n".join(lines)
     if update.callback_query:
-        await update.callback_query.edit_message_text(text)
+        await update.callback_query.edit_message_text(text, reply_markup=_nav_home_inline())
     else:
         await msg.reply_text(text)
