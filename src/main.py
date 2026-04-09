@@ -57,7 +57,7 @@ def build_app(token: str) -> Application:
     app.add_handler(CallbackQueryHandler(consent_accept, pattern="^consent_accept$"))
     app.add_handler(CallbackQueryHandler(set_tone, pattern=r"^tone:(warm|neutral)$"))
     app.add_handler(CallbackQueryHandler(apply_alternative_hint, pattern=r"^alt_hint:(friend|facts|balanced)$"))
-    app.add_handler(CallbackQueryHandler(main_menu_action, pattern=r"^menu:(new|history|settings|help)$"))
+    app.add_handler(CallbackQueryHandler(main_menu_action, pattern=r"^menu:(history|settings|help)$"))
     app.add_handler(CommandHandler("history", show_history))
     app.add_handler(CommandHandler("export", export_progress))
     app.add_handler(MessageHandler(filters.Regex(r"^История$"), show_history))
@@ -70,6 +70,7 @@ def build_app(token: str) -> Application:
         entry_points=[
             CommandHandler("new", new_thought_entry),
             MessageHandler(filters.Regex(r"^Новая мысль$"), new_thought_entry),
+            CallbackQueryHandler(new_thought_entry, pattern=r"^menu:new$"),
         ],
         states={
             WAIT_THOUGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_thought_text)],
