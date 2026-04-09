@@ -160,6 +160,47 @@ class FlowHappyPathTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(ctx.job_queue.calls), 1)
         self.assertEqual(ctx.job_queue.calls[0]["when"], 10800)
 
+    async def test_intensity_after_callback_completes_session(self) -> None:
+        user = FakeUser()
+        ctx = FakeContext()
+
+        await handlers.new_thought_entry(FakeUpdate(user, "/new"), ctx)
+        await handlers.receive_thought_text(FakeUpdate(user, "Я не справлюсь"), ctx)
+        await handlers.receive_emotion(FakeUpdate(user, "Тревога"), ctx)
+        await handlers.receive_intensity_before(FakeUpdate(user, "60"), ctx)
+        await handlers.receive_distortion(FakeUpdate(user, "Катастрофизация"), ctx)
+        await handlers.receive_evidence_for(FakeUpdate(user, "Сложная задача"), ctx)
+        await handlers.receive_evidence_against(FakeUpdate(user, "Бывало и сложнее"), ctx)
+        await handlers.receive_alternative_thought(FakeUpdate(user, "Я справлюсь по шагам"), ctx)
+
+        cb_msg = FakeMessage(user, "")
+        state = await handlers.choose_intensity_after(
+            FakeUpdate(user, callback_data="int_after:40", callback_message=cb_msg),
+            ctx,
+        )
+        self.assertEqual(state, ConversationHandler.END)
+        self.assertTrue(any("Итог разбора" in a["text"] for a in cb_msg.answers))
+
+    async def test_alt_hint_does_not_force_step8(self) -> None:
+        user = FakeUser()
+        ctx = FakeContext()
+
+        await handlers.new_thought_entry(FakeUpdate(user, "/new"), ctx)
+        await handlers.receive_thought_text(FakeUpdate(user, "Я не справлюсь"), ctx)
+        await handlers.receive_emotion(FakeUpdate(user, "Тревога"), ctx)
+        await handlers.receive_intensity_before(FakeUpdate(user, "60"), ctx)
+        await handlers.receive_distortion(FakeUpdate(user, "Катастрофизация"), ctx)
+        await handlers.receive_evidence_for(FakeUpdate(user, "Сложная задача"), ctx)
+        await handlers.receive_evidence_against(FakeUpdate(user, "Бывало и сложнее"), ctx)
+
+        cb_msg = FakeMessage(user, "")
+        await handlers.apply_alternative_hint(
+            FakeUpdate(user, callback_data="alt_hint:friend", callback_message=cb_msg),
+            ctx,
+        )
+
+        self.assertTrue(any("Отправь свою альтернативную мысль" in a["text"] for a in cb_msg.answers))
+
 
 if __name__ == "__main__":
     unittest.main()

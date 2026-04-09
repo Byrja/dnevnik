@@ -1285,9 +1285,10 @@ async def _finalize_with_after_intensity(update: Update, context: ContextTypes.D
     variant = _ab_prompt_variant(user_id) if user_id is not None else None
     log_event("step_completed", tg_user_id=user_id, step=8)
     log_event("session_completed", tg_user_id=user_id, meta={"delta": delta, "before": before, "after": after, "variant": variant})
-    if update.message:
+    out_msg = update.message or (update.callback_query.message if update.callback_query else None)
+    if out_msg:
         result_text = _format_result(before=before, after=after, delta=delta, next_step=next_step, anchor=anchor)
-        await update.message.reply_text(result_text, reply_markup=_result_actions_inline())
+        await out_msg.reply_text(result_text, reply_markup=_result_actions_inline())
 
     context.user_data.pop("draft_entry", None)
     return ConversationHandler.END
@@ -1371,17 +1372,13 @@ async def apply_alternative_hint(update: Update, context: ContextTypes.DEFAULT_T
     kind = data.split(":", 1)[1]
     hint_text = _alternative_hint_text(kind, thought)
 
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("UPDATE entries SET alternative_thought = ? WHERE id = ?", (hint_text, entry_id))
-    conn.commit()
-    conn.close()
-
-    draft["alternative_thought"] = hint_text
-    context.user_data["draft_entry"] = draft
-
-    await query.edit_message_text(f"Подсказка:\n{hint_text}")
-    await query.message.reply_text(INTENSITY_AFTER_PROMPT_RU, reply_markup=_intensity_quick_keyboard("after"))
+    await query.edit_message_text(
+        f"Подсказка:\n{hint_text}\n\n"
+        "Отправь свою альтернативную мысль (можно взять эту и отредактировать).",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("⬅️ Назад к подсказкам", callback_data="alt_ai:back")]]
+        ),
+    )
 
 
 async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
