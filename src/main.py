@@ -14,6 +14,7 @@ from db import init_db
 from handlers import (
     admin_ab_action,
     admin_ab_mode,
+    OWNER_TG_ID,
     admin_panel,
     admin_panel_action,
     apply_alternative_hint,
@@ -66,9 +67,12 @@ def build_app(token: str) -> Application:
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", show_help))
     app.add_handler(CommandHandler("stats", show_stats))
-    app.add_handler(CommandHandler("funnel", show_funnel))
-    app.add_handler(CommandHandler("admin", admin_panel))
-    app.add_handler(CommandHandler("admin_ab", admin_ab_mode))
+    owner_filter = filters.User(user_id=OWNER_TG_ID)
+
+    app.add_handler(CommandHandler("funnel", show_funnel, filters=owner_filter))
+    app.add_handler(CommandHandler("admin", admin_panel, filters=owner_filter))
+    app.add_handler(CommandHandler("admin_ab", admin_ab_mode, filters=owner_filter))
+    app.add_handler(CommandHandler("export", export_progress, filters=owner_filter))
     app.add_handler(CallbackQueryHandler(admin_panel_action, pattern=r"^adminpanel:(home|funnel|ab|export_help)$"))
     app.add_handler(CallbackQueryHandler(admin_ab_action, pattern=r"^adminab:(status|test|a|b)$"))
     app.add_handler(CallbackQueryHandler(consent_accept, pattern="^consent_accept$"))
@@ -77,7 +81,6 @@ def build_app(token: str) -> Application:
     app.add_handler(CallbackQueryHandler(main_menu_action, pattern=r"^menu:(history|stats|settings|help|home)$"))
     app.add_handler(CallbackQueryHandler(set_followup_reminder, pattern=r"^followup:(3h)$"))
     app.add_handler(CommandHandler("history", show_history))
-    app.add_handler(CommandHandler("export", export_progress))
     app.add_handler(MessageHandler(filters.Regex(r"^История$"), show_history))
     app.add_handler(CommandHandler("settings", show_settings))
     app.add_handler(CommandHandler("onboarding", show_onboarding))

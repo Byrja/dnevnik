@@ -25,12 +25,15 @@ class CallbackRoutesTests(unittest.TestCase):
 
     def test_funnel_command_registered(self) -> None:
         src = main_py()
-        self.assertIn('CommandHandler("funnel", show_funnel)', src)
+        self.assertIn('CommandHandler("funnel", show_funnel, filters=owner_filter)', src)
 
     def test_admin_ab_command_registered(self) -> None:
         src = main_py()
-        self.assertIn('CommandHandler("admin", admin_panel)', src)
-        self.assertIn('CommandHandler("admin_ab", admin_ab_mode)', src)
+        self.assertIn('owner_filter = filters.User(user_id=OWNER_TG_ID)', src)
+        self.assertIn('CommandHandler("admin", admin_panel, filters=owner_filter)', src)
+        self.assertIn('CommandHandler("admin_ab", admin_ab_mode, filters=owner_filter)', src)
+        self.assertIn('CommandHandler("funnel", show_funnel, filters=owner_filter)', src)
+        self.assertIn('CommandHandler("export", export_progress, filters=owner_filter)', src)
         self.assertIn('CallbackQueryHandler(admin_panel_action, pattern=r"^adminpanel:(home|funnel|ab|export_help)$")', src)
         self.assertIn('CallbackQueryHandler(admin_ab_action, pattern=r"^adminab:(status|test|a|b)$")', src)
 
