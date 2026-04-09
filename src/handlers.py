@@ -1064,8 +1064,7 @@ async def receive_alternative_thought(update: Update, context: ContextTypes.DEFA
     draft["alternative_thought"] = alt
     context.user_data["draft_entry"] = draft
 
-    await update.message.reply_text(INTENSITY_AFTER_PROMPT_RU, reply_markup=_flow_keyboard())
-    await update.message.reply_text("Быстрый выбор:", reply_markup=_intensity_quick_keyboard("after"))
+    await update.message.reply_text(INTENSITY_AFTER_PROMPT_RU, reply_markup=_intensity_quick_keyboard("after"))
     return WAIT_INTENSITY_AFTER
 
 
@@ -1083,16 +1082,25 @@ async def apply_alternative_hint(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     data = query.data or "alt_hint:balanced"
-    if data.startswith("alt_ai:"):
+    if data == "alt_ai:back":
+        await query.edit_message_text(ALTERNATIVE_HINT_PROMPT_RU, reply_markup=_alternative_hint_keyboard())
+        return
+
+    if data == "alt_ai:rewrite":
         options = _ai_rewrite_options(thought=thought, evidence_against=draft.get("evidence_against", ""))
         ai_text = (
             "🤖 Варианты переформулировки:\n\n"
             f"1) {options[0]}\n\n"
             f"2) {options[1]}\n\n"
             f"3) {options[2]}\n\n"
-            "Выбери любой вариант (можно отредактировать своими словами) и отправь его сообщением."
+            "Скопируй понравившийся вариант (можно отредактировать) и отправь сообщением."
         )
-        await query.message.reply_text(ai_text)
+        await query.edit_message_text(
+            ai_text,
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("⬅️ Назад к подсказкам", callback_data="alt_ai:back")]]
+            ),
+        )
         return
 
     kind = data.split(":", 1)[1]
@@ -1107,9 +1115,8 @@ async def apply_alternative_hint(update: Update, context: ContextTypes.DEFAULT_T
     draft["alternative_thought"] = hint_text
     context.user_data["draft_entry"] = draft
 
-    await query.message.reply_text(f"Подсказка:\n{hint_text}")
-    await query.message.reply_text(INTENSITY_AFTER_PROMPT_RU, reply_markup=_flow_keyboard())
-    await query.message.reply_text("Быстрый выбор:", reply_markup=_intensity_quick_keyboard("after"))
+    await query.edit_message_text(f"Подсказка:\n{hint_text}")
+    await query.message.reply_text(INTENSITY_AFTER_PROMPT_RU, reply_markup=_intensity_quick_keyboard("after"))
 
 
 async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
