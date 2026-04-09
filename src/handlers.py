@@ -344,7 +344,10 @@ async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             [InlineKeyboardButton("Нейтральный", callback_data="tone:neutral")],
         ]
     )
-    await msg.reply_text(SETTINGS_PROMPT_RU, reply_markup=kb)
+    if update.callback_query:
+        await update.callback_query.edit_message_text(SETTINGS_PROMPT_RU, reply_markup=kb)
+    else:
+        await msg.reply_text(SETTINGS_PROMPT_RU, reply_markup=kb)
 
 
 async def set_tone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -375,7 +378,10 @@ async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     msg = update.message or (update.callback_query.message if update.callback_query else None)
     if not msg:
         return
-    await msg.reply_text(HELP_RU, parse_mode=None)
+    if update.callback_query:
+        await update.callback_query.edit_message_text(HELP_RU, parse_mode=None)
+    else:
+        await msg.reply_text(HELP_RU, parse_mode=None)
 
 
 async def main_menu_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -416,7 +422,10 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     if total == 0:
         conn.close()
-        await msg.reply_text(STATS_EMPTY_RU)
+        if update.callback_query:
+            await update.callback_query.edit_message_text(STATS_EMPTY_RU)
+        else:
+            await msg.reply_text(STATS_EMPTY_RU)
         return
 
     # Cards in last 7 days
@@ -482,7 +491,10 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         streak=streak,
         top_emotions=top_emotions_str,
     )
-    await msg.reply_text(stats_text)
+    if update.callback_query:
+        await update.callback_query.edit_message_text(stats_text)
+    else:
+        await msg.reply_text(stats_text)
 
 
 async def set_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1240,7 +1252,10 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     conn.close()
 
     if not rows:
-        await msg.reply_text(HISTORY_EMPTY_RU)
+        if update.callback_query:
+            await update.callback_query.edit_message_text(HISTORY_EMPTY_RU)
+        else:
+            await msg.reply_text(HISTORY_EMPTY_RU)
         return
 
     lines = [f"📜 История (последние {len(rows)} карточек)\n━━━━━━━━━━━━━━━"]
@@ -1270,4 +1285,8 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         lines.append(f"• {emo} {delta_str}\n  {thought[:35]}")
 
     lines.append(f"\n{HISTORY_FILTER_HINT_RU}")
-    await msg.reply_text("\n".join(lines))
+    text = "\n".join(lines)
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text)
+    else:
+        await msg.reply_text(text)
