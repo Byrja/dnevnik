@@ -410,12 +410,11 @@ def _menu_intro_text_for_user(tg_user_id: int | None) -> str:
         conn.close()
 
     if completed == 0:
-        suffix = "Начнём первый разбор — займет 3–7 минут."
+        suffix = "Первый разбор займет 3–7 минут и даст конкретный следующий шаг."
     else:
-        suffix = f"У тебя уже {completed} завершён(ых) карточек. Продолжим в том же ритме."
+        suffix = f"У тебя уже {completed} завершённых разборов. Держим темп и качество."
 
-    return f"🧠 Clarity CBT\n{greet}. {suffix}\n\nВыбери действие ниже:"
-
+    return f"🧠 Clarity CBT\n{greet}.\n{suffix}\n\nВыбери действие:"
 async def _send_main_menu(msg) -> None:
     user_id = msg.from_user.id if getattr(msg, 'from_user', None) else None
     await msg.reply_text(_menu_intro_text_for_user(user_id), reply_markup=_main_menu_inline(user_id))
@@ -527,10 +526,29 @@ async def set_tone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     conn.commit()
     conn.close()
 
-    label = "тёплый" if tone == "warm" else "нейтральный"
+    if tone == "warm":
+        details = (
+            "✅ Режим: тёплый\n\n"
+            "Что изменится:\n"
+            "• больше поддержки и мягких формулировок\n"
+            "• меньше сухих служебных фраз\n"
+            "• акцент на бережный темп"
+        )
+    else:
+        details = (
+            "✅ Режим: нейтральный\n\n"
+            "Что изменится:\n"
+            "• короче и по делу\n"
+            "• меньше эмоциональных вставок\n"
+            "• акцент на структуру и факты"
+        )
+
     await query.edit_message_text(
-        SETTINGS_SAVED_TEMPLATE_RU.format(tone_label=label),
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 В меню", callback_data="menu:home")]]),
+        details,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ К настройкам", callback_data="menu:settings")],
+            [InlineKeyboardButton("🏠 В меню", callback_data="menu:home")],
+        ]),
     )
 
 

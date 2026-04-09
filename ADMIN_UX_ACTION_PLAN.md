@@ -14,8 +14,8 @@ Date: 2026-04-09
 - [x] Step 1: admin back navigation consistency
 - [x] Step 2: admin users list + user details view
 - [x] Step 3: remove Help from menu and menu routing
-- [ ] Step 4: tone mode explanation card on selection
-- [ ] Step 5: refresh concise premium main-menu description + smoke
+- [x] Step 4: tone mode explanation card on selection
+- [x] Step 5: refresh concise premium main-menu description + smoke
 
 ## Rule
 One step = one commit + tests + service restart.
