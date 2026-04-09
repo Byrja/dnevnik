@@ -56,6 +56,14 @@ class FakeUpdate:
         )
 
 
+class FakeJobQueue:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def run_once(self, cb, when):
+        self.calls.append({"cb": cb, "when": when})
+
+
 class FakeContext:
     def __init__(self) -> None:
         self.user_data = {}
@@ -137,6 +145,20 @@ class FlowHappyPathTests(unittest.IsolatedAsyncioTestCase):
             ctx,
         )
         self.assertEqual(state, handlers.WAIT_EVIDENCE_FOR)
+
+    async def test_followup_callback_schedules_job(self) -> None:
+        user = FakeUser()
+        ctx = FakeContext()
+        ctx.job_queue = FakeJobQueue()
+        cb_msg = FakeMessage(user, "")
+
+        await handlers.set_followup_reminder(
+            FakeUpdate(user, callback_data="followup:3h", callback_message=cb_msg),
+            ctx,
+        )
+
+        self.assertEqual(len(ctx.job_queue.calls), 1)
+        self.assertEqual(ctx.job_queue.calls[0]["when"], 10800)
 
 
 if __name__ == "__main__":
