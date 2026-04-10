@@ -300,7 +300,7 @@ def _format_result(before: int, after: int, delta: int, next_step: str, anchor: 
         f"{next_step}\n\n"
         "🧷 Якорь на день:\n"
         f"{anchor}\n\n"
-        "↩️ Вернись позже и проверь, как изменилась интенсивность."
+        "↩️ Вернись позже и сравни, как изменилась интенсивность."
     )
 
 HISTORY_EMPTY_RU = (

@@ -414,7 +414,7 @@ def _menu_intro_text_for_user(tg_user_id: int | None) -> str:
     else:
         progress_line = f"У тебя уже {completed} завершённых разборов — это сильная база."
 
-    support_line = "Если накрывает, разложим мысль по шагам и вернём контроль без лишней драмы."
+    support_line = "Если накрывает, разложим мысль по шагам и вернём ощущение контроля."
 
     return (
         f"🧠 Ясно?\n"
@@ -1277,9 +1277,8 @@ async def _save_emotion_and_next(update: Update, context: ContextTypes.DEFAULT_T
     log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=3)
 
     tone = _get_tone(update.effective_user.id) if update.effective_user else "warm"
-    await out_msg.reply_text(_tone_text(tone, "emotion_saved"))
-    await out_msg.reply_text(INTENSITY_PROMPT_RU, reply_markup=_flow_keyboard())
-    await out_msg.reply_text("Быстрый выбор:", reply_markup=_intensity_quick_keyboard("before"))
+    saved = _tone_text(tone, "emotion_saved")
+    await out_msg.reply_text(f"{saved}\n\n{INTENSITY_PROMPT_RU}", reply_markup=_intensity_quick_keyboard("before"))
     return WAIT_INTENSITY_BEFORE
 
 
