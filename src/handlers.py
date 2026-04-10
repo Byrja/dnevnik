@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from datetime import datetime
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
@@ -1274,6 +1275,9 @@ async def send_daily_nudges(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def send_session_timeout_nudges(context: ContextTypes.DEFAULT_TYPE) -> None:
+    if os.getenv("ENABLE_SESSION_TIMEOUT_NUDGE", "0").strip().lower() not in {"1", "true", "yes", "on"}:
+        return
+
     app = context.application
     conn = get_conn()
     cur = conn.cursor()
