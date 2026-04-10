@@ -497,6 +497,21 @@ async def _send_onboarding(chat_message) -> None:
             "Формат: инструмент самопомощи, не медуслуга."
         )
         return
+    if tone == "direct":
+        await chat_message.reply_text(
+            "Onboarding\n"
+            "Шаги: мысль -> эмоция -> искажение -> факты -> альтернатива -> итог.\n"
+            "Цель: снизить накал и выбрать следующий шаг."
+        )
+        return
+    if tone == "coach":
+        await chat_message.reply_text(
+            "Onboarding\n"
+            "───────────────────\n"
+            "Сейчас быстро разложим мысль, найдём искажение и соберём рабочую формулировку.\n"
+            "На выходе будет конкретный шаг, который можно сделать сегодня."
+        )
+        return
     await chat_message.reply_text(ONBOARDING_1_RU)
     await chat_message.reply_text(ONBOARDING_2_RU)
     await chat_message.reply_text(ONBOARDING_3_RU)
@@ -607,6 +622,11 @@ async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     uid = update.effective_user.id if update.effective_user else None
     tone = _get_tone(uid) if uid is not None else "warm"
     help_text = HELP_RU_NEUTRAL if tone == "neutral" else HELP_RU
+    if tone == "coach":
+        help_text = "⚡ Быстрые команды: /new, /history, /stats, /settings.\nСмысл: меньше думать, больше делать по шагам."
+    elif tone == "direct":
+        help_text = "Команды: /new /history /stats /settings /reminders on|off /help"
+
     if update.callback_query:
         await update.callback_query.edit_message_text(help_text, parse_mode=None)
     else:
@@ -2081,10 +2101,24 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     top_emo = max(emo_counts, key=emo_counts.get) if emo_counts else "—"
     top_dist = max(dist_counts, key=dist_counts.get) if dist_counts else "—"
 
+    tone = _get_tone(update.effective_user.id) if update.effective_user else "warm"
+    if tone == "coach":
+        title = f"📜 История прогресса (последние {len(rows)})"
+        summary_label = "Твой темп"
+    elif tone == "direct":
+        title = f"📜 История ({len(rows)})"
+        summary_label = "Сводка"
+    elif tone == "neutral":
+        title = f"📜 История (последние {len(rows)} карточек)"
+        summary_label = "Статистика"
+    else:
+        title = f"📜 История (последние {len(rows)} карточек)"
+        summary_label = "Коротко"
+
     lines = [
-        f"📜 История (последние {len(rows)} карточек)",
+        title,
         "───────────────────",
-        f"Средний сдвиг: {avg_delta:+.1f}",
+        f"{summary_label}: средний сдвиг {avg_delta:+.1f}",
         f"Чаще всего эмоция: {top_emo}",
         f"Чаще всего искажение: {top_dist}",
         "",
@@ -2105,7 +2139,12 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         lines.append(f"• {emo} {delta}  ({before}→{after})\n  {thought}")
 
-    lines.append(f"\n{HISTORY_FILTER_HINT_RU}")
+    if tone == "direct":
+        lines.append("\nФильтр: /history 7d | /history тревога")
+    elif tone == "coach":
+        lines.append("\nПодсказка: фильтр /history 7d поможет увидеть динамику недели.")
+    else:
+        lines.append(f"\n{HISTORY_FILTER_HINT_RU}")
     text = "\n".join(lines)
     if update.callback_query:
         await update.callback_query.edit_message_text(text)
