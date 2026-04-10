@@ -1064,6 +1064,14 @@ async def send_session_timeout_nudges(context: ContextTypes.DEFAULT_TYPE) -> Non
           AND COALESCE(s.reminders_enabled, 1) = 1
           AND datetime(e.created_at) <= datetime('now', '-45 minutes')
           AND (e.timeout_nudged_at IS NULL OR datetime(e.timeout_nudged_at) <= datetime('now', '-12 hours'))
+          AND e.id = (
+              SELECT MAX(e2.id)
+              FROM entries e2
+              WHERE e2.tg_user_id = e.tg_user_id
+                AND e2.is_completed = 0
+                AND datetime(e2.created_at) <= datetime('now', '-45 minutes')
+                AND (e2.timeout_nudged_at IS NULL OR datetime(e2.timeout_nudged_at) <= datetime('now', '-12 hours'))
+          )
         ORDER BY e.id DESC
         LIMIT 200
         """
@@ -1077,9 +1085,17 @@ async def send_session_timeout_nudges(context: ContextTypes.DEFAULT_TYPE) -> Non
             await app.bot.send_message(chat_id=tg_user_id, text=SESSION_TIMEOUT_NUDGE_RU)
             conn2 = get_conn()
             cur2 = conn2.cursor()
+            # Stamp all pending old drafts for this user to avoid same-run spam bursts
             cur2.execute(
-                "UPDATE entries SET timeout_nudged_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (entry_id,),
+                """
+                UPDATE entries
+                SET timeout_nudged_at = CURRENT_TIMESTAMP
+                WHERE tg_user_id = ?
+                  AND is_completed = 0
+                  AND datetime(created_at) <= datetime('now', '-45 minutes')
+                  AND (timeout_nudged_at IS NULL OR datetime(timeout_nudged_at) <= datetime('now', '-12 hours'))
+                """,
+                (tg_user_id,),
             )
             conn2.commit()
             conn2.close()
