@@ -16,15 +16,17 @@ def _chat_rewrite_options(thought: str, evidence_against: str, *, api_key: str, 
 
     model = model.strip()
     system = (
-        "Ты помогаешь переформулировать мысль в рамках КПТ. "
-        "Верни строго 3 коротких варианта на русском языке: мягкий, рациональный, поддерживающий. "
-        "Каждый вариант до 220 символов. Без медицинских советов."
+        "Ты — помощник КПТ. Задача: дать 3 качественные альтернативные мысли на русском. "
+        "Стиль: спокойный, реалистичный, без магического мышления и без категоричности. "
+        "Обязательно опирайся на факты против автоматической мысли. "
+        "Формат строго: 1) ... 2) ... 3) ... (каждая строка отдельно). "
+        "Ограничения: до 180 символов на вариант, без медицинских советов, без оценочных ярлыков. "
+        "Варианты по типу: (1) мягкий, (2) рациональный, (3) поддерживающий-действующий."
     )
     user = (
         f"Исходная мысль: {thought}\n"
-        f"Факты против: {evidence_against}\n"
-        "Формат ответа строго:\n"
-        "1) ...\n2) ...\n3) ..."
+        f"Факты против: {evidence_against or 'нет явных фактов'}\n"
+        "Сформулируй 3 альтернативные мысли от первого лица."
     )
 
     payload = json.dumps(
@@ -34,7 +36,7 @@ def _chat_rewrite_options(thought: str, evidence_against: str, *, api_key: str, 
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
-            "temperature": 0.5,
+            "temperature": 0.35,
         }
     ).encode("utf-8")
 
@@ -105,6 +107,18 @@ def _fireworks_rewrite_options(thought: str, evidence_against: str) -> Optional[
     )
 
 
+def _openrouter_rewrite_options(thought: str, evidence_against: str) -> Optional[list[str]]:
+    api_key = os.getenv("LLM_API_KEY", "").strip()
+    model = os.getenv("LLM_MODEL", "openai/gpt-4o-mini").strip()
+    return _chat_rewrite_options(
+        thought=thought,
+        evidence_against=evidence_against,
+        api_key=api_key,
+        model=model,
+        url="https://openrouter.ai/api/v1/chat/completions",
+    )
+
+
 def rewrite_options(thought: str, evidence_against: str) -> Optional[list[str]]:
     if not llm_enabled():
         return None
@@ -116,4 +130,6 @@ def rewrite_options(thought: str, evidence_against: str) -> Optional[list[str]]:
         return _groq_rewrite_options(thought=thought, evidence_against=evidence_against)
     if provider == "fireworks":
         return _fireworks_rewrite_options(thought=thought, evidence_against=evidence_against)
+    if provider == "openrouter":
+        return _openrouter_rewrite_options(thought=thought, evidence_against=evidence_against)
     return None
