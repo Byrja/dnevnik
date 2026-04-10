@@ -10,12 +10,11 @@ def llm_enabled() -> bool:
     return os.getenv("LLM_MODE", "off").strip().lower() in {"on", "1", "true", "yes"}
 
 
-def _openai_rewrite_options(thought: str, evidence_against: str) -> Optional[list[str]]:
-    api_key = os.getenv("LLM_API_KEY", "").strip()
+def _chat_rewrite_options(thought: str, evidence_against: str, *, api_key: str, model: str, url: str) -> Optional[list[str]]:
     if not api_key:
         return None
 
-    model = os.getenv("LLM_MODEL", "gpt-4o-mini").strip()
+    model = model.strip()
     system = (
         "Ты помогаешь переформулировать мысль в рамках КПТ. "
         "Верни строго 3 коротких варианта на русском языке: мягкий, рациональный, поддерживающий. "
@@ -40,7 +39,7 @@ def _openai_rewrite_options(thought: str, evidence_against: str) -> Optional[lis
     ).encode("utf-8")
 
     req = request.Request(
-        "https://api.openai.com/v1/chat/completions",
+        url,
         data=payload,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         method="POST",
@@ -70,6 +69,30 @@ def _openai_rewrite_options(thought: str, evidence_against: str) -> Optional[lis
     return out[:3]
 
 
+def _openai_rewrite_options(thought: str, evidence_against: str) -> Optional[list[str]]:
+    api_key = os.getenv("LLM_API_KEY", "").strip()
+    model = os.getenv("LLM_MODEL", "gpt-4o-mini").strip()
+    return _chat_rewrite_options(
+        thought=thought,
+        evidence_against=evidence_against,
+        api_key=api_key,
+        model=model,
+        url="https://api.openai.com/v1/chat/completions",
+    )
+
+
+def _groq_rewrite_options(thought: str, evidence_against: str) -> Optional[list[str]]:
+    api_key = os.getenv("LLM_API_KEY", "").strip()
+    model = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile").strip()
+    return _chat_rewrite_options(
+        thought=thought,
+        evidence_against=evidence_against,
+        api_key=api_key,
+        model=model,
+        url="https://api.groq.com/openai/v1/chat/completions",
+    )
+
+
 def rewrite_options(thought: str, evidence_against: str) -> Optional[list[str]]:
     if not llm_enabled():
         return None
@@ -77,4 +100,6 @@ def rewrite_options(thought: str, evidence_against: str) -> Optional[list[str]]:
     provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
     if provider == "openai":
         return _openai_rewrite_options(thought=thought, evidence_against=evidence_against)
+    if provider == "groq":
+        return _groq_rewrite_options(thought=thought, evidence_against=evidence_against)
     return None
