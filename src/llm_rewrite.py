@@ -15,6 +15,18 @@ def llm_enabled() -> bool:
 _CACHE: dict[str, tuple[float, list[str]]] = {}
 _CACHE_TTL_SEC = 6 * 60 * 60
 
+_STATS = {
+    "requests": 0,
+    "cache_hit": 0,
+    "llm_success": 0,
+    "provider_fail": 0,
+    "generic_reject": 0,
+}
+
+
+def get_llm_rewrite_stats() -> dict[str, int]:
+    return dict(_STATS)
+
 
 def _keywords(text: str) -> set[str]:
     words = re.findall(r"[а-яА-Яa-zA-Z0-9]{4,}", (text or "").lower())
@@ -160,7 +172,9 @@ def _openrouter_rewrite_options(thought: str, evidence_against: str) -> Optional
 
 
 def rewrite_options(thought: str, evidence_against: str, tone: str = "warm") -> Optional[list[str]]:
+    _STATS["requests"] += 1
     if not llm_enabled():
+        _STATS["provider_fail"] += 1
         return None
 
     provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
@@ -178,6 +192,7 @@ def rewrite_options(thought: str, evidence_against: str, tone: str = "warm") -> 
     now = time.time()
     cached = _CACHE.get(cache_key)
     if cached and now - cached[0] <= _CACHE_TTL_SEC:
+        _STATS["cache_hit"] += 1
         return cached[1]
 
     out: Optional[list[str]] = None
@@ -191,9 +206,12 @@ def rewrite_options(thought: str, evidence_against: str, tone: str = "warm") -> 
         out = _openrouter_rewrite_options(thought=t_thought, evidence_against=evidence_against)
 
     if not out:
+        _STATS["provider_fail"] += 1
         return None
     if _looks_generic(out):
+        _STATS["generic_reject"] += 1
         return None
 
     _CACHE[cache_key] = (now, out)
+    _STATS["llm_success"] += 1
     return out
