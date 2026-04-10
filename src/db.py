@@ -65,6 +65,14 @@ def init_db():
     )
     ''')
 
+    cur.execute('''
+    CREATE TABLE IF NOT EXISTS ai_metrics (
+        metric_key TEXT PRIMARY KEY,
+        metric_value INTEGER NOT NULL DEFAULT 0,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
     # Lightweight migrations
     cur.execute("PRAGMA table_info(settings)")
     cols = {r[1] for r in cur.fetchall()}

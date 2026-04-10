@@ -3,6 +3,8 @@ import re
 import time
 from typing import Optional
 
+from ai_metrics import inc_metric
+
 import json
 from urllib import request
 from urllib.error import URLError, HTTPError
@@ -26,6 +28,11 @@ _STATS = {
 
 def get_llm_rewrite_stats() -> dict[str, int]:
     return dict(_STATS)
+
+
+def _bump(key: str) -> None:
+    _STATS[key] += 1
+    inc_metric(key, 1)
 
 
 def _keywords(text: str) -> set[str]:
@@ -172,9 +179,9 @@ def _openrouter_rewrite_options(thought: str, evidence_against: str) -> Optional
 
 
 def rewrite_options(thought: str, evidence_against: str, tone: str = "warm") -> Optional[list[str]]:
-    _STATS["requests"] += 1
+    _bump("requests")
     if not llm_enabled():
-        _STATS["provider_fail"] += 1
+        _bump("provider_fail")
         return None
 
     provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
@@ -192,7 +199,7 @@ def rewrite_options(thought: str, evidence_against: str, tone: str = "warm") -> 
     now = time.time()
     cached = _CACHE.get(cache_key)
     if cached and now - cached[0] <= _CACHE_TTL_SEC:
-        _STATS["cache_hit"] += 1
+        _bump("cache_hit")
         return cached[1]
 
     out: Optional[list[str]] = None
@@ -206,12 +213,12 @@ def rewrite_options(thought: str, evidence_against: str, tone: str = "warm") -> 
         out = _openrouter_rewrite_options(thought=t_thought, evidence_against=evidence_against)
 
     if not out:
-        _STATS["provider_fail"] += 1
+        _bump("provider_fail")
         return None
     if _looks_generic(out):
-        _STATS["generic_reject"] += 1
+        _bump("generic_reject")
         return None
 
     _CACHE[cache_key] = (now, out)
-    _STATS["llm_success"] += 1
+    _bump("llm_success")
     return out
