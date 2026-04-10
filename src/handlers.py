@@ -286,6 +286,7 @@ def _main_menu_inline(tg_user_id: int | None = None) -> InlineKeyboardMarkup:
 
 def _result_actions_inline() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🤖 Краткое резюме ИИ", callback_data="ai_summary:final")],
         [InlineKeyboardButton("⏰ Напомнить через 3 часа", callback_data="followup:3h")],
         [InlineKeyboardButton("🏠 В меню", callback_data="menu:home")],
     ])
@@ -956,6 +957,56 @@ async def show_funnel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.callback_query.edit_message_text(text, reply_markup=_admin_back_keyboard())
     else:
         await msg.reply_text(text, reply_markup=_admin_back_keyboard())
+
+
+def _local_final_summary(row) -> str:
+    thought, emo, dist, before, after, alt = row
+    delta = (before - after) if isinstance(before, int) and isinstance(after, int) else None
+    d = f"{delta:+d}" if isinstance(delta, int) else "—"
+    alt_short = (alt or "").strip()
+    if len(alt_short) > 140:
+        alt_short = alt_short[:137] + "..."
+    return (
+        "🧠 Краткое резюме\n"
+        "───────────────────\n"
+        f"Эмоция: {emo or '—'}\n"
+        f"Искажение: {dist or '—'}\n"
+        f"Сдвиг: {before if before is not None else '—'} → {after if after is not None else '—'} (Δ {d})\n"
+        f"Новая формулировка: {alt_short or '—'}"
+    )
+
+
+async def ai_summary_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query or not update.effective_user:
+        return
+    await query.answer()
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT thought_text, emotion_label, distortion, intensity_before, intensity_after, alternative_thought
+        FROM entries
+        WHERE tg_user_id = ? AND is_completed = 1
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (update.effective_user.id,),
+    )
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        await query.edit_message_text("Нет завершённой карточки для резюме.", reply_markup=_main_menu_inline(update.effective_user.id))
+        return
+
+    # Local summary for now (safe). LLM summary can be added behind feature flag later.
+    text = _local_final_summary(row)
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="menu:home")]]),
+    )
 
 
 async def set_followup_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

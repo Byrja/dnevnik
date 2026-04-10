@@ -17,6 +17,7 @@ from handlers import (
     OWNER_TG_ID,
     admin_export_action,
     admin_panel,
+    ai_summary_action,
     admin_panel_action,
     admin_user_view,
     apply_alternative_hint,
@@ -83,6 +84,7 @@ def build_app(token: str) -> Application:
     app.add_handler(CallbackQueryHandler(set_tone, pattern=r"^tone:(warm|neutral)$"))
     app.add_handler(CallbackQueryHandler(apply_alternative_hint, pattern=r"^alt_hint:(friend|facts|balanced|one_line|self_support)$|^alt_ai:(rewrite|back)$"))
     app.add_handler(CallbackQueryHandler(main_menu_action, pattern=r"^menu:(history|stats|settings|admin|home)$"))
+    app.add_handler(CallbackQueryHandler(ai_summary_action, pattern=r"^ai_summary:final$"))
     app.add_handler(CallbackQueryHandler(set_followup_reminder, pattern=r"^followup:(3h)$"))
     app.add_handler(CommandHandler("history", show_history))
     app.add_handler(MessageHandler(filters.Regex(r"^История$"), show_history))
