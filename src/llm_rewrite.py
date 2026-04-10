@@ -93,6 +93,18 @@ def _groq_rewrite_options(thought: str, evidence_against: str) -> Optional[list[
     )
 
 
+def _fireworks_rewrite_options(thought: str, evidence_against: str) -> Optional[list[str]]:
+    api_key = os.getenv("LLM_API_KEY", "").strip()
+    model = os.getenv("LLM_MODEL", "accounts/fireworks/models/llama-v3p1-8b-instruct").strip()
+    return _chat_rewrite_options(
+        thought=thought,
+        evidence_against=evidence_against,
+        api_key=api_key,
+        model=model,
+        url="https://api.fireworks.ai/inference/v1/chat/completions",
+    )
+
+
 def rewrite_options(thought: str, evidence_against: str) -> Optional[list[str]]:
     if not llm_enabled():
         return None
@@ -102,4 +114,6 @@ def rewrite_options(thought: str, evidence_against: str) -> Optional[list[str]]:
         return _openai_rewrite_options(thought=thought, evidence_against=evidence_against)
     if provider == "groq":
         return _groq_rewrite_options(thought=thought, evidence_against=evidence_against)
+    if provider == "fireworks":
+        return _fireworks_rewrite_options(thought=thought, evidence_against=evidence_against)
     return None
