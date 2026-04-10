@@ -773,12 +773,12 @@ async def admin_users_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT u.tg_user_id, COALESCE(u.full_name, ''), COALESCE(u.username, ''),
+        SELECT u.tg_user_id, COALESCE(u.first_name, ''), COALESCE(u.username, ''),
                COUNT(e.id) as total_entries,
                MAX(e.created_at) as last_entry
         FROM users u
         LEFT JOIN entries e ON e.tg_user_id = u.tg_user_id
-        GROUP BY u.tg_user_id, u.full_name, u.username
+        GROUP BY u.tg_user_id, u.first_name, u.username
         ORDER BY COALESCE(last_entry, u.created_at) DESC
         LIMIT 20
         """
@@ -812,7 +812,7 @@ async def admin_user_view(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("SELECT full_name, username, created_at FROM users WHERE tg_user_id = ?", (uid,))
+    cur.execute("SELECT first_name, username, created_at FROM users WHERE tg_user_id = ?", (uid,))
     u = cur.fetchone()
     cur.execute(
         """
