@@ -1,5 +1,6 @@
 import os
 import re
+import time
 from typing import Optional
 
 import json
@@ -9,6 +10,10 @@ from urllib.error import URLError, HTTPError
 
 def llm_enabled() -> bool:
     return os.getenv("LLM_MODE", "off").strip().lower() in {"on", "1", "true", "yes"}
+
+
+_CACHE: dict[str, tuple[float, list[str]]] = {}
+_CACHE_TTL_SEC = 6 * 60 * 60
 
 
 def _keywords(text: str) -> set[str]:
@@ -24,6 +29,19 @@ def _is_contextual(options: list[str], thought: str, evidence_against: str) -> b
     joined = " ".join(options).lower()
     hit = sum(1 for w in ctx if w in joined)
     return hit >= 1
+
+
+def _looks_generic(options: list[str]) -> bool:
+    joined = " ".join(options).lower()
+    generic_markers = [
+        "я не идеален",
+        "я могу работать над собой",
+        "я могу ошибаться",
+        "стать лучше",
+        "всё будет хорошо",
+    ]
+    # If most text is generic and lacks concrete context words, reject.
+    return sum(1 for m in generic_markers if m in joined) >= 2
 
 
 def _chat_rewrite_options(thought: str, evidence_against: str, *, api_key: str, model: str, url: str) -> Optional[list[str]]:
@@ -146,20 +164,36 @@ def rewrite_options(thought: str, evidence_against: str, tone: str = "warm") -> 
         return None
 
     provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
-    # tone-aware style hints through lightweight pre-processing
-    if tone == "direct":
-        thought = f"(стиль: прямой) {thought}"
-    elif tone == "coach":
-        thought = f"(стиль: коуч) {thought}"
-    elif tone == "neutral":
-        thought = f"(стиль: нейтральный) {thought}"
 
+    # Tone-aware style hints through lightweight pre-processing.
+    t_thought = thought
+    if tone == "direct":
+        t_thought = f"(стиль: прямой) {thought}"
+    elif tone == "coach":
+        t_thought = f"(стиль: коуч) {thought}"
+    elif tone == "neutral":
+        t_thought = f"(стиль: нейтральный) {thought}"
+
+    cache_key = f"{provider}|{tone}|{thought.strip()}|{evidence_against.strip()}"
+    now = time.time()
+    cached = _CACHE.get(cache_key)
+    if cached and now - cached[0] <= _CACHE_TTL_SEC:
+        return cached[1]
+
+    out: Optional[list[str]] = None
     if provider == "openai":
-        return _openai_rewrite_options(thought=thought, evidence_against=evidence_against)
-    if provider == "groq":
-        return _groq_rewrite_options(thought=thought, evidence_against=evidence_against)
-    if provider == "fireworks":
-        return _fireworks_rewrite_options(thought=thought, evidence_against=evidence_against)
-    if provider == "openrouter":
-        return _openrouter_rewrite_options(thought=thought, evidence_against=evidence_against)
-    return None
+        out = _openai_rewrite_options(thought=t_thought, evidence_against=evidence_against)
+    elif provider == "groq":
+        out = _groq_rewrite_options(thought=t_thought, evidence_against=evidence_against)
+    elif provider == "fireworks":
+        out = _fireworks_rewrite_options(thought=t_thought, evidence_against=evidence_against)
+    elif provider == "openrouter":
+        out = _openrouter_rewrite_options(thought=t_thought, evidence_against=evidence_against)
+
+    if not out:
+        return None
+    if _looks_generic(out):
+        return None
+
+    _CACHE[cache_key] = (now, out)
+    return out

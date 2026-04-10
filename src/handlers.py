@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
 from telegram.ext import ContextTypes, ConversationHandler
@@ -1921,6 +1922,13 @@ async def apply_alternative_hint(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     if data == "alt_ai:rewrite":
+        now = time.time()
+        last = float(context.user_data.get("_last_alt_ai_ts", 0.0))
+        if now - last < 8.0:
+            await query.answer("Подожди пару секунд…", show_alert=False)
+            return
+        context.user_data["_last_alt_ai_ts"] = now
+
         tone = _get_tone(update.effective_user.id) if update.effective_user else "warm"
         options = rewrite_options(thought=thought, evidence_against=draft.get("evidence_against", ""), tone=tone)
         source = "LLM"
