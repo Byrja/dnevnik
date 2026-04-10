@@ -8,6 +8,7 @@ from db import get_conn
 from logger import log_error, log_update
 from llm_rewrite import rewrite_options
 from llm_distortion import suggest_distortions
+from llm_summary import summarize_card
 from state import (
     WAIT_ALTERNATIVE_THOUGHT,
     WAIT_DISTORTION,
@@ -1001,8 +1002,21 @@ async def ai_summary_action(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await query.edit_message_text("Нет завершённой карточки для резюме.", reply_markup=_main_menu_inline(update.effective_user.id))
         return
 
-    # Local summary for now (safe). LLM summary can be added behind feature flag later.
-    text = _local_final_summary(row)
+    thought, emo, dist, before, after, alt = row
+    llm_text = summarize_card(
+        thought=thought or "",
+        emotion=emo or "",
+        distortion=dist or "",
+        before=before,
+        after=after,
+        alt=alt or "",
+    )
+
+    if llm_text:
+        text = f"🤖 Краткое резюме ИИ\n───────────────────\n{llm_text}"
+    else:
+        text = _local_final_summary(row)
+
     await query.edit_message_text(
         text,
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="menu:home")]]),
