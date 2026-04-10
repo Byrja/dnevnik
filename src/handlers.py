@@ -110,22 +110,32 @@ def _tone_text(tone: str, key: str) -> str:
         "thought_saved": {
             "warm": THOUGHT_SAVED_RU,
             "neutral": "Мысль зафиксирована. Выбери эмоцию.",
+            "coach": "Отлично, зафиксировали мысль. Дальше — эмоция и интенсивность.",
+            "direct": "Мысль принята. Следующий шаг: эмоция.",
         },
         "emotion_saved": {
             "warm": EMOTION_SAVED_RU,
             "neutral": "Эмоция принята. Оцени интенсивность 0–100.",
+            "coach": "Есть. Теперь оцени накал по шкале 0–100 — это даст точку отсчёта.",
+            "direct": "Эмоция принята. Интенсивность: 0–100.",
         },
         "distortion_saved": {
             "warm": DISTORTION_SAVED_RU,
             "neutral": "Искажение зафиксировано. Переходим к фактам.",
+            "coach": "Хорошо. Поймали искажение — теперь собираем факты и выравниваем картину.",
+            "direct": "Искажение сохранено. Далее факты.",
         },
         "evidence_step_done": {
             "warm": EVIDENCE_STEP_DONE_RU,
             "neutral": "Факты собраны. Сформулируй альтернативную мысль.",
+            "coach": "Супер. Факты на руках — формулируем рабочую альтернативную мысль.",
+            "direct": "Факты собраны. Переход к альтернативной мысли.",
         },
         "result_preface": {
             "warm": "Хорошая работа. Смотри итог:",
             "neutral": "Разбор завершён. Итог:",
+            "coach": "Отличная работа. Смотрим результат и фиксируем следующий шаг:",
+            "direct": "Готово. Итог:",
         },
     }
     return tone_map.get(key, {}).get(tone, tone_map.get(key, {}).get("warm", ""))
@@ -174,6 +184,14 @@ def _ab_prompt_variant(user_id: int) -> str:
 def _thought_prompt_for_user(user_id: int, tone: str) -> str:
     if tone == "neutral":
         return "Введите исходную мысль (1–2 предложения)."
+    if tone == "coach":
+        return (
+            "👣 Шаг 1 • Исходная мысль\n"
+            "Сформулируй мысль чётко: «Я думаю, что ... и из-за этого ...».\n"
+            "Чем конкретнее формулировка, тем сильнее эффект разбора."
+        )
+    if tone == "direct":
+        return "Шаг 1: исходная мысль. Формат: «Я думаю, что ... и из-за этого ...»."
     return THOUGHT_PROMPT_RU_B if _ab_prompt_variant(user_id) == "B" else THOUGHT_PROMPT_RU
 
 
@@ -510,8 +528,8 @@ async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
     kb = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("Тёплый", callback_data="tone:warm")],
-            [InlineKeyboardButton("Нейтральный", callback_data="tone:neutral")],
+            [InlineKeyboardButton("Тёплый", callback_data="tone:warm"), InlineKeyboardButton("Нейтральный", callback_data="tone:neutral")],
+            [InlineKeyboardButton("Коуч", callback_data="tone:coach"), InlineKeyboardButton("Прямой", callback_data="tone:direct")],
         ]
     )
     if update.callback_query:
@@ -547,13 +565,29 @@ async def set_tone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "• меньше сухих служебных фраз\n"
             "• акцент на бережный темп"
         )
-    else:
+    elif tone == "neutral":
         details = (
             "✅ Режим: нейтральный\n\n"
             "Что изменится:\n"
             "• короче и по делу\n"
             "• меньше эмоциональных вставок\n"
             "• акцент на структуру и факты"
+        )
+    elif tone == "coach":
+        details = (
+            "✅ Режим: коуч\n\n"
+            "Что изменится:\n"
+            "• мотивирующий тон и фокус на результате\n"
+            "• больше формулировок про действие\n"
+            "• поддержка через прогресс"
+        )
+    else:
+        details = (
+            "✅ Режим: прямой\n\n"
+            "Что изменится:\n"
+            "• максимально коротко и конкретно\n"
+            "• минимум эмоций, максимум структуры\n"
+            "• акцент на скорость прохождения"
         )
 
     await query.edit_message_text(
@@ -1863,7 +1897,8 @@ async def apply_alternative_hint(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     if data == "alt_ai:rewrite":
-        options = rewrite_options(thought=thought, evidence_against=draft.get("evidence_against", ""))
+        tone = _get_tone(update.effective_user.id) if update.effective_user else "warm"
+        options = rewrite_options(thought=thought, evidence_against=draft.get("evidence_against", ""), tone=tone)
         source = "LLM"
         if not options:
             options = _ai_rewrite_options(thought=thought, evidence_against=draft.get("evidence_against", ""))

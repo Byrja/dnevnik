@@ -141,11 +141,19 @@ def _openrouter_rewrite_options(thought: str, evidence_against: str) -> Optional
     )
 
 
-def rewrite_options(thought: str, evidence_against: str) -> Optional[list[str]]:
+def rewrite_options(thought: str, evidence_against: str, tone: str = "warm") -> Optional[list[str]]:
     if not llm_enabled():
         return None
 
     provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
+    # tone-aware style hints through lightweight pre-processing
+    if tone == "direct":
+        thought = f"(стиль: прямой) {thought}"
+    elif tone == "coach":
+        thought = f"(стиль: коуч) {thought}"
+    elif tone == "neutral":
+        thought = f"(стиль: нейтральный) {thought}"
+
     if provider == "openai":
         return _openai_rewrite_options(thought=thought, evidence_against=evidence_against)
     if provider == "groq":
