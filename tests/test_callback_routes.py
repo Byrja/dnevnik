@@ -22,6 +22,7 @@ class CallbackRoutesTests(unittest.TestCase):
         self.assertIn("menu:(history|stats|settings|admin|home)", src)
         self.assertIn("followup:(3h)", src)
         self.assertIn("CallbackQueryHandler(ai_summary_action, pattern=r\"^ai_summary:final$\")", src)
+        self.assertIn("CallbackQueryHandler(feedback_action, pattern=r\"^feedback:(start|rate:[1-5]|skip)$\")", src)
         self.assertIn("CallbackQueryHandler(set_tone, pattern=r\"^tone:(warm|neutral|coach|direct)$\")", src)
         self.assertIn("emohelp:(anxiety|sadness|anger|other|back|future|loss|boundary)", src)
 

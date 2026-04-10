@@ -309,6 +309,7 @@ def _result_actions_inline() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🤖 Краткое резюме ИИ", callback_data="ai_summary:final")],
         [InlineKeyboardButton("⏰ Напомнить через 3 часа", callback_data="followup:3h")],
+        [InlineKeyboardButton("📝 Оставить отзыв о тестировании", callback_data="feedback:start")],
         [InlineKeyboardButton("🏠 В меню", callback_data="menu:home")],
     ])
 
@@ -1094,6 +1095,64 @@ async def ai_summary_action(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         text,
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="menu:home")]]),
     )
+
+
+async def feedback_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query or not update.effective_user:
+        return
+    await query.answer()
+
+    data = query.data or "feedback:start"
+    uid = update.effective_user.id
+
+    if data == "feedback:start":
+        await query.edit_message_text(
+            "📝 Отзыв о тестировании (по желанию)\n"
+            "Насколько полезным был разбор?",
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("1", callback_data="feedback:rate:1"),
+                    InlineKeyboardButton("2", callback_data="feedback:rate:2"),
+                    InlineKeyboardButton("3", callback_data="feedback:rate:3"),
+                    InlineKeyboardButton("4", callback_data="feedback:rate:4"),
+                    InlineKeyboardButton("5", callback_data="feedback:rate:5"),
+                ],
+                [InlineKeyboardButton("Пропустить", callback_data="feedback:skip")],
+                [InlineKeyboardButton("⬅️ В меню", callback_data="menu:home")],
+            ]),
+        )
+        return
+
+    if data.startswith("feedback:rate:"):
+        try:
+            rating = int(data.split(":")[-1])
+        except Exception:
+            rating = 0
+        if rating < 1 or rating > 5:
+            await query.edit_message_text(
+                "Не удалось принять оценку.",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 В меню", callback_data="menu:home")]]),
+            )
+            return
+        log_event("feedback_rating", tg_user_id=uid, step=8, meta={"rating": rating})
+        await query.edit_message_text(
+            f"Спасибо! Оценка {rating}/5 сохранена 🙌",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🏠 В меню", callback_data="menu:home")],
+            ]),
+        )
+        return
+
+    if data == "feedback:skip":
+        log_event("feedback_skipped", tg_user_id=uid, step=8, meta={"source": "final_card"})
+        await query.edit_message_text(
+            "Ок, без отзыва 👍",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🏠 В меню", callback_data="menu:home")],
+            ]),
+        )
+        return
 
 
 async def set_followup_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

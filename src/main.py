@@ -29,6 +29,7 @@ from handlers import (
     distortion_pick_action,
     emotion_hint_action,
     export_progress,
+    feedback_action,
     go_menu,
     main_menu_action,
     new_thought_entry,
@@ -85,6 +86,7 @@ def build_app(token: str) -> Application:
     app.add_handler(CallbackQueryHandler(apply_alternative_hint, pattern=r"^alt_hint:(friend|facts|balanced|one_line|self_support)$|^alt_ai:(rewrite|back)$"))
     app.add_handler(CallbackQueryHandler(main_menu_action, pattern=r"^menu:(history|stats|settings|admin|home)$"))
     app.add_handler(CallbackQueryHandler(ai_summary_action, pattern=r"^ai_summary:final$"))
+    app.add_handler(CallbackQueryHandler(feedback_action, pattern=r"^feedback:(start|rate:[1-5]|skip)$"))
     app.add_handler(CallbackQueryHandler(set_followup_reminder, pattern=r"^followup:(3h)$"))
     app.add_handler(CommandHandler("history", show_history))
     app.add_handler(MessageHandler(filters.Regex(r"^История$"), show_history))
