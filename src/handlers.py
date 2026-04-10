@@ -7,6 +7,7 @@ from analytics import log_event
 from db import get_conn
 from logger import log_error, log_update
 from llm_rewrite import rewrite_options
+from llm_distortion import suggest_distortions
 from state import (
     WAIT_ALTERNATIVE_THOUGHT,
     WAIT_DISTORTION,
@@ -1402,6 +1403,14 @@ async def _save_intensity_before_and_next(update: Update, context: ContextTypes.
     log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=4)
 
     await msg.reply_text(EMOTION_STEP_DONE_RU)
+    top2 = suggest_distortions(
+        thought=draft.get("thought_text", ""),
+        emotion=draft.get("emotion_label", ""),
+    )
+    if len(top2) >= 2:
+        await msg.reply_text(f"🤖 Похоже на: {top2[0]} / {top2[1]}")
+    elif len(top2) == 1:
+        await msg.reply_text(f"🤖 Похоже на: {top2[0]}")
     await msg.reply_text(DISTORTION_PROMPT_RU, reply_markup=_distortion_choice_keyboard())
     return WAIT_DISTORTION
 
