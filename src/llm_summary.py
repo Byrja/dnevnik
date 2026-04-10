@@ -25,6 +25,7 @@ def summarize_card(
     before: int | None,
     after: int | None,
     alt: str,
+    tone: str = "warm",
 ) -> Optional[str]:
     if os.getenv("LLM_MODE", "off").strip().lower() not in {"on", "1", "true", "yes"}:
         return None
@@ -40,6 +41,13 @@ def summarize_card(
     if isinstance(before, int) and isinstance(after, int):
         delta = before - after
 
+    style_hint = {
+        "warm": "Стиль: мягкий, поддерживающий.",
+        "neutral": "Стиль: нейтральный, деловой.",
+        "coach": "Стиль: коучинговый, мотивирующий к действию.",
+        "direct": "Стиль: прямой, короткий, без лишних слов.",
+    }.get((tone or "warm").lower(), "Стиль: нейтральный.")
+
     system = (
         "Ты помощник КПТ. Сделай краткое резюме одной карточки. "
         "Формат строго 4 строки на русском: "
@@ -47,7 +55,8 @@ def summarize_card(
         "2) Ключевое искажение простыми словами, "
         "3) Сдвиг по интенсивности, "
         "4) Следующий шаг на сегодня. "
-        "Без медицинских рекомендаций, без воды, до 420 символов суммарно."
+        "Без медицинских рекомендаций, без воды, до 420 символов суммарно. "
+        + style_hint
     )
     user = (
         f"Мысль: {thought}\n"

@@ -35,7 +35,7 @@ def _heuristic(thought: str) -> list[str]:
     return out[:2]
 
 
-def suggest_distortions(thought: str, emotion: str) -> list[str]:
+def suggest_distortions(thought: str, emotion: str, tone: str = "warm") -> list[str]:
     if os.getenv("LLM_MODE", "off").strip().lower() not in {"on", "1", "true", "yes"}:
         return _heuristic(thought)
 
@@ -56,9 +56,17 @@ def suggest_distortions(thought: str, emotion: str) -> list[str]:
     else:
         return _heuristic(thought)
 
+    style_hint = {
+        "warm": "Тон ответа: мягкий.",
+        "neutral": "Тон ответа: нейтральный.",
+        "coach": "Тон ответа: коучинговый.",
+        "direct": "Тон ответа: прямой.",
+    }.get((tone or "warm").lower(), "Тон ответа: нейтральный.")
+
     system = (
         "Ты помощник КПТ. Выбери 2 наиболее вероятных когнитивных искажения из фиксированного списка. "
-        "Ответ только JSON: {\"top\":[\"...\",\"...\"]}."
+        "Ответ только JSON: {\"top\":[\"...\",\"...\"]}. "
+        + style_hint
     )
     user = (
         "Список: " + ", ".join(LABELS) + "\n"

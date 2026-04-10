@@ -1037,6 +1037,7 @@ async def ai_summary_action(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
 
     thought, emo, dist, before, after, alt = row
+    tone = _get_tone(update.effective_user.id) if update.effective_user else "warm"
     llm_text = summarize_card(
         thought=thought or "",
         emotion=emo or "",
@@ -1044,6 +1045,7 @@ async def ai_summary_action(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         before=before,
         after=after,
         alt=alt or "",
+        tone=tone,
     )
 
     if llm_text:
@@ -1502,9 +1504,11 @@ async def _save_intensity_before_and_next(update: Update, context: ContextTypes.
     log_event("step_entered", tg_user_id=update.effective_user.id if update.effective_user else None, step=4)
 
     await msg.reply_text(EMOTION_STEP_DONE_RU)
+    tone = _get_tone(update.effective_user.id) if update.effective_user else "warm"
     top2 = suggest_distortions(
         thought=draft.get("thought_text", ""),
         emotion=draft.get("emotion_label", ""),
+        tone=tone,
     )
     if len(top2) >= 2:
         await msg.reply_text(f"🤖 Похоже на: {top2[0]} / {top2[1]}")
