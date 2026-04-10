@@ -82,6 +82,8 @@ def init_db():
         cur.execute("ALTER TABLE settings ADD COLUMN last_nudge_at DATETIME")
     if 'ab_mode' not in cols:
         cur.execute("ALTER TABLE settings ADD COLUMN ab_mode TEXT NOT NULL DEFAULT 'test'")
+    if 'last_timeout_nudge_at' not in cols:
+        cur.execute("ALTER TABLE settings ADD COLUMN last_timeout_nudge_at DATETIME")
 
     cur.execute("PRAGMA table_info(entries)")
     entry_cols = {r[1] for r in cur.fetchall()}

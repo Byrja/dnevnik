@@ -1285,6 +1285,7 @@ async def send_session_timeout_nudges(context: ContextTypes.DEFAULT_TYPE) -> Non
         WHERE e.is_completed = 0
           AND COALESCE(s.reminders_enabled, 1) = 1
           AND datetime(e.created_at) <= datetime('now', '-45 minutes')
+          AND (s.last_timeout_nudge_at IS NULL OR datetime(s.last_timeout_nudge_at) <= datetime('now', '-12 hours'))
           AND (e.timeout_nudged_at IS NULL OR datetime(e.timeout_nudged_at) <= datetime('now', '-12 hours'))
           AND e.id = (
               SELECT MAX(e2.id)
@@ -1316,6 +1317,15 @@ async def send_session_timeout_nudges(context: ContextTypes.DEFAULT_TYPE) -> Non
                   AND is_completed = 0
                   AND datetime(created_at) <= datetime('now', '-45 minutes')
                   AND (timeout_nudged_at IS NULL OR datetime(timeout_nudged_at) <= datetime('now', '-12 hours'))
+                """,
+                (tg_user_id,),
+            )
+            cur2.execute(
+                """
+                UPDATE settings
+                SET last_timeout_nudge_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE tg_user_id = ?
                 """,
                 (tg_user_id,),
             )
