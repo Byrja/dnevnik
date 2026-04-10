@@ -9,7 +9,7 @@ Increase AI output reliability before wider audience testing.
 ## Steps
 - [x] Step 1: Add AI guardrails (generic-response rejection + per-user cooldown + in-process cache).
 - [x] Step 2: Add fallback telemetry counters (LLM success/fallback ratio).
-- [ ] Step 3: Add concise admin visibility for AI quality in `/funnel` (or admin panel card).
+- [x] Step 3: Add concise admin visibility for AI quality in `/funnel` (or admin panel card).
 - [ ] Step 4: Smoke and release note.
 
 ## Rule

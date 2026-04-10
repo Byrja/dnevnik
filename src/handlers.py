@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 from analytics import log_event
 from db import get_conn
 from logger import log_error, log_update
-from llm_rewrite import rewrite_options
+from llm_rewrite import get_llm_rewrite_stats, rewrite_options
 from llm_distortion import suggest_distortions
 from llm_summary import summarize_card
 from state import (
@@ -991,6 +991,14 @@ async def show_funnel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         else:
             winner_line = f"Winner: B (+{rate_b - rate_a:.1f} п.п.)"
 
+    ai = get_llm_rewrite_stats()
+    ai_requests = ai.get("requests", 0)
+    ai_success = ai.get("llm_success", 0)
+    ai_cache = ai.get("cache_hit", 0)
+    ai_fail = ai.get("provider_fail", 0)
+    ai_generic = ai.get("generic_reject", 0)
+    ai_success_rate = (ai_success / ai_requests * 100) if ai_requests else 0.0
+
     lines = [
         "📈 Funnel (all users)",
         "───────────────────",
@@ -1002,6 +1010,10 @@ async def show_funnel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         f"A: {completed_a}/{started_a} ({rate_a:.1f}%)",
         f"B: {completed_b}/{started_b} ({rate_b:.1f}%)",
         f"{winner_line}",
+        "",
+        "AI quality (step 7 rewrite):",
+        f"requests={ai_requests} | success={ai_success} ({ai_success_rate:.1f}%)",
+        f"cache_hit={ai_cache} | provider_fail={ai_fail} | generic_reject={ai_generic}",
         "",
         "Step completions:",
     ]
