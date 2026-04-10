@@ -1806,13 +1806,14 @@ async def apply_alternative_hint(update: Update, context: ContextTypes.DEFAULT_T
 
         ai_text = (
             f"🤖 Варианты переформулировки ({source}):\n\n"
-            f"1) {options[0]}\n\n"
-            f"2) {options[1]}\n\n"
-            f"3) {options[2]}\n\n"
-            "Скопируй понравившийся вариант (можно отредактировать) и отправь сообщением."
+            f"1)\n```{options[0]}```\n\n"
+            f"2)\n```{options[1]}```\n\n"
+            f"3)\n```{options[2]}```\n\n"
+            "Нажми на блок, чтобы скопировать, при желании отредактируй и отправь сообщением."
         )
         await query.edit_message_text(
             ai_text,
+            parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("⬅️ Назад к подсказкам", callback_data="alt_ai:back")]]
             ),
