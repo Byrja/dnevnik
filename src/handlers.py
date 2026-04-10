@@ -1003,6 +1003,25 @@ async def show_funnel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     ai_success_rate = (ai_success / ai_requests * 100) if ai_requests else 0.0
     ai_mem_requests = ai_mem.get("requests", 0)
 
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT COUNT(*), COALESCE(AVG(CAST(json_extract(meta_json, '$.rating') AS REAL)), 0)
+        FROM events
+        WHERE event_name = 'feedback_rating'
+        """
+    )
+    fb_count, fb_avg = cur.fetchone() or (0, 0)
+    cur.execute("SELECT COUNT(*) FROM events WHERE event_name = 'feedback_skipped'")
+    fb_skipped = int((cur.fetchone() or [0])[0] or 0)
+    conn.close()
+
+    fb_count = int(fb_count or 0)
+    fb_avg = float(fb_avg or 0)
+    fb_total_prompted = fb_count + fb_skipped
+    fb_skip_rate = (fb_skipped / fb_total_prompted * 100) if fb_total_prompted else 0.0
+
     lines = [
         "📈 Funnel (all users)",
         "───────────────────",
@@ -1019,6 +1038,10 @@ async def show_funnel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         f"total_db: requests={ai_requests} | success={ai_success} ({ai_success_rate:.1f}%)",
         f"total_db: cache_hit={ai_cache} | provider_fail={ai_fail} | generic_reject={ai_generic}",
         f"since_restart: requests={ai_mem_requests}",
+        "",
+        "Feedback (beta):",
+        f"ratings={fb_count} | avg={fb_avg:.2f}/5",
+        f"skipped={fb_skipped} | skip_rate={fb_skip_rate:.1f}%",
         "",
         "Step completions:",
     ]
