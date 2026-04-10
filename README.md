@@ -89,6 +89,16 @@ python -m unittest tests/test_callback_routes.py
 Перед любыми UI-правками обязательно сверяться с:
 - `UI_COPY_LOCK.md`
 
+### LLM rewrite on Step 7 (optional)
+By default bot uses local rewrite templates. To enable real LLM:
+```bash
+LLM_MODE=on
+LLM_PROVIDER=openai
+LLM_API_KEY=...
+LLM_MODEL=gpt-4o-mini
+```
+If LLM is unavailable, bot automatically falls back to local options.
+
 ### Деплой (production)
 ```bash
 # На сервере

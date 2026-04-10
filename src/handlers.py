@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 from analytics import log_event
 from db import get_conn
 from logger import log_error, log_update
+from llm_rewrite import rewrite_options
 from state import (
     WAIT_ALTERNATIVE_THOUGHT,
     WAIT_DISTORTION,
@@ -1788,9 +1789,14 @@ async def apply_alternative_hint(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     if data == "alt_ai:rewrite":
-        options = _ai_rewrite_options(thought=thought, evidence_against=draft.get("evidence_against", ""))
+        options = rewrite_options(thought=thought, evidence_against=draft.get("evidence_against", ""))
+        source = "LLM"
+        if not options:
+            options = _ai_rewrite_options(thought=thought, evidence_against=draft.get("evidence_against", ""))
+            source = "local"
+
         ai_text = (
-            "🤖 Варианты переформулировки:\n\n"
+            f"🤖 Варианты переформулировки ({source}):\n\n"
             f"1) {options[0]}\n\n"
             f"2) {options[1]}\n\n"
             f"3) {options[2]}\n\n"
