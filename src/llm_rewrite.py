@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Optional
 
 import json
@@ -10,6 +11,21 @@ def llm_enabled() -> bool:
     return os.getenv("LLM_MODE", "off").strip().lower() in {"on", "1", "true", "yes"}
 
 
+def _keywords(text: str) -> set[str]:
+    words = re.findall(r"[а-яА-Яa-zA-Z0-9]{4,}", (text or "").lower())
+    stop = {"когда", "если", "потому", "который", "которые", "очень", "просто", "сейчас", "можно", "будет", "снова", "себя", "своей", "этого", "этой", "такой", "there", "with", "that", "this", "from"}
+    return {w for w in words if w not in stop}
+
+
+def _is_contextual(options: list[str], thought: str, evidence_against: str) -> bool:
+    ctx = _keywords(thought) | _keywords(evidence_against)
+    if not ctx:
+        return True
+    joined = " ".join(options).lower()
+    hit = sum(1 for w in ctx if w in joined)
+    return hit >= 1
+
+
 def _chat_rewrite_options(thought: str, evidence_against: str, *, api_key: str, model: str, url: str) -> Optional[list[str]]:
     if not api_key:
         return None
@@ -18,7 +34,9 @@ def _chat_rewrite_options(thought: str, evidence_against: str, *, api_key: str, 
     system = (
         "Ты — помощник КПТ. Задача: дать 3 качественные альтернативные мысли на русском. "
         "Стиль: спокойный, реалистичный, без магического мышления и без категоричности. "
-        "Обязательно опирайся на факты против автоматической мысли. "
+        "Обязательно опирайся на факты против автоматической мысли и на контекст пользователя. "
+        "Нельзя писать общие универсальные фразы, не связанные с исходной мыслью. "
+        "Каждый вариант должен явно быть про ту же ситуацию. "
         "Формат строго: 1) ... 2) ... 3) ... (каждая строка отдельно). "
         "Ограничения: до 180 символов на вариант, без медицинских советов, без оценочных ярлыков. "
         "Варианты по типу: (1) мягкий, (2) рациональный, (3) поддерживающий-действующий."
@@ -68,7 +86,11 @@ def _chat_rewrite_options(thought: str, evidence_against: str, *, api_key: str, 
 
     if len(out) < 3:
         return None
-    return out[:3]
+
+    out = out[:3]
+    if not _is_contextual(out, thought, evidence_against):
+        return None
+    return out
 
 
 def _openai_rewrite_options(thought: str, evidence_against: str) -> Optional[list[str]]:
