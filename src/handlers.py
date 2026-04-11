@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import time
 from datetime import datetime
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
@@ -242,9 +243,16 @@ DISTORTION_DETAILS = {
 CODE_TO_DISTORTION_LABEL = {v: k for k, v in DISTORTION_LABEL_TO_CODE.items()}
 
 
+def _normalize_text(text: str) -> str:
+    s = (text or "").lower().strip().replace("ё", "е")
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
 def _contains_crisis_signal(text: str) -> bool:
-    s = (text or "").lower()
-    markers = [
+    s = _normalize_text(text)
+
+    explicit_markers = [
         "хочу умер",
         "не хочу жить",
         "поконч",
@@ -254,7 +262,39 @@ def _contains_crisis_signal(text: str) -> bool:
         "убить себя",
         "умереть",
     ]
-    return any(m in s for m in markers)
+    soft_markers = [
+        "лучше бы меня не было",
+        "не хочу просыпаться",
+        "хочу исчезнуть",
+        "нет смысла жить",
+        "всем будет лучше без меня",
+        "меня не было",
+        "хочу чтобы меня не стало",
+        "я лишний",
+        "жизнь бессмысленна",
+    ]
+
+    if any(m in s for m in explicit_markers):
+        return True
+    if any(m in s for m in soft_markers):
+        return True
+
+    hopeless_context = ["без меня", "исчезнуть", "не стало", "не существовать", "не просыпаться"]
+    hopeless_modifiers = ["лучше", "проще", "хочу", "иногда", "кажется", "всем"]
+    if any(c in s for c in hopeless_context) and any(m in s for m in hopeless_modifiers):
+        return True
+
+    return False
+
+
+def _is_noise_input(text: str) -> bool:
+    s = (text or "").strip()
+    if not s:
+        return True
+    if re.fullmatch(r"[\W_]+", s, flags=re.UNICODE):
+        return True
+    alpha_tokens = re.findall(r"[а-яА-Яa-zA-Z]{2,}", s)
+    return len(alpha_tokens) == 0
 
 
 def _is_too_vague(text: str) -> bool:
@@ -471,6 +511,27 @@ async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         await update.message.reply_text("Ок, остановила текущий разбор.")
         await _send_main_menu(update.message)
     return ConversationHandler.END
+
+
+async def _route_global_flow_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int | None:
+    if not update.message:
+        return None
+    cmd = _normalize_text(update.message.text or "")
+
+    if cmd in {"отмена", "в меню"}:
+        await cancel_flow(update, context)
+        return ConversationHandler.END
+
+    if cmd == "/start":
+        context.user_data.pop("draft_entry", None)
+        await start(update, context)
+        return ConversationHandler.END
+
+    if cmd == "/new":
+        context.user_data.pop("draft_entry", None)
+        return await new_thought_entry(update, context)
+
+    return None
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1481,6 +1542,10 @@ async def receive_thought_text(update: Update, context: ContextTypes.DEFAULT_TYP
     if not update.message or not update.effective_user:
         return ConversationHandler.END
 
+    routed = await _route_global_flow_command(update, context)
+    if routed is not None:
+        return routed
+
     thought_text = (update.message.text or "").strip()
     if _contains_crisis_signal(thought_text):
         return await _handle_crisis(update, context, thought_text)
@@ -1521,11 +1586,19 @@ async def _save_emotion_and_next(update: Update, context: ContextTypes.DEFAULT_T
 async def receive_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not update.message:
         return ConversationHandler.END
+
+    routed = await _route_global_flow_command(update, context)
+    if routed is not None:
+        return routed
+
     emotion = (update.message.text or "").strip()
     if _contains_crisis_signal(emotion):
         return await _handle_crisis(update, context, emotion)
     if not emotion:
         await update.message.reply_text("Выбери эмоцию кнопкой или введи текстом.")
+        return WAIT_EMOTION
+    if _is_noise_input(emotion):
+        await update.message.reply_text("Не поняла эмоцию. Напиши словом (например: тревога, злость, грусть, стыд).")
         return WAIT_EMOTION
     if emotion.lower() == "не могу определиться":
         await update.message.reply_text(
@@ -1655,6 +1728,10 @@ async def receive_intensity_before(update: Update, context: ContextTypes.DEFAULT
     if not update.message:
         return ConversationHandler.END
 
+    routed = await _route_global_flow_command(update, context)
+    if routed is not None:
+        return routed
+
     raw = (update.message.text or "").strip()
     if not raw.isdigit():
         await update.message.reply_text("Нужно число от 0 до 100.")
@@ -1752,6 +1829,10 @@ async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not update.message:
         return ConversationHandler.END
 
+    routed = await _route_global_flow_command(update, context)
+    if routed is not None:
+        return routed
+
     distortion = (update.message.text or "").strip()
     if not distortion:
         await update.message.reply_text("Выбери искажение кнопкой или введи текстом.")
@@ -1799,6 +1880,10 @@ async def receive_distortion(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def receive_evidence_for(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not update.message:
         return ConversationHandler.END
+
+    routed = await _route_global_flow_command(update, context)
+    if routed is not None:
+        return routed
 
     evidence_for = (update.message.text or "").strip()
     if _contains_crisis_signal(evidence_for):
@@ -1873,6 +1958,10 @@ def _ai_rewrite_options(thought: str, evidence_against: str) -> list[str]:
 async def receive_evidence_against(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not update.message:
         return ConversationHandler.END
+
+    routed = await _route_global_flow_command(update, context)
+    if routed is not None:
+        return routed
 
     evidence_against = (update.message.text or "").strip()
     if _contains_crisis_signal(evidence_against):
@@ -1979,6 +2068,10 @@ async def receive_alternative_thought(update: Update, context: ContextTypes.DEFA
     if not update.message:
         return ConversationHandler.END
 
+    routed = await _route_global_flow_command(update, context)
+    if routed is not None:
+        return routed
+
     alt = (update.message.text or "").strip()
     if _contains_crisis_signal(alt):
         return await _handle_crisis(update, context, alt)
@@ -2079,6 +2172,10 @@ async def apply_alternative_hint(update: Update, context: ContextTypes.DEFAULT_T
 async def receive_intensity_after(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not update.message:
         return ConversationHandler.END
+
+    routed = await _route_global_flow_command(update, context)
+    if routed is not None:
+        return routed
 
     raw = (update.message.text or "").strip()
     if not raw.isdigit():
