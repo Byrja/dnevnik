@@ -71,6 +71,7 @@ from state import (
 def build_app(token: str) -> Application:
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("new", new_thought_entry))
     app.add_handler(CommandHandler("help", show_help))
     app.add_handler(CommandHandler("stats", show_stats))
     owner_filter = filters.User(user_id=OWNER_TG_ID)
@@ -96,7 +97,8 @@ def build_app(token: str) -> Application:
     app.add_handler(CommandHandler("onboarding", show_onboarding))
     app.add_handler(CommandHandler("reminders", set_reminders))
     app.add_handler(MessageHandler(filters.Regex(r"^Настройки$"), show_settings))
-    app.add_handler(MessageHandler(filters.Regex(r"(?i)^\s*в меню\s*$"), go_menu_and_end))
+    app.add_handler(MessageHandler(filters.Regex(r"(?i)^\s*отмена\s*$"), cancel_flow))
+    app.add_handler(MessageHandler(filters.Regex(r"(?i)^\s*в\s*меню\s*$"), go_menu_and_end))
 
     thought_flow = ConversationHandler(
         entry_points=[
