@@ -4,7 +4,7 @@ import re
 import time
 from datetime import datetime
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
-from telegram.ext import ContextTypes, ConversationHandler
+from telegram.ext import ApplicationHandlerStop, ContextTypes, ConversationHandler
 
 from analytics import log_event
 from db import get_conn
@@ -526,14 +526,41 @@ async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     return ConversationHandler.END
 
 
-async def crisis_guard_global(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def pre_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message:
         return
-    text = (update.message.text or "").strip()
-    if not text or text.startswith("/"):
+    raw = (update.message.text or "").strip()
+    if not raw:
         return
-    if _contains_crisis_signal(text):
-        await _handle_crisis(update, context, text)
+
+    cmd = _normalize_text(raw)
+    compact = re.sub(r"[^/\w\sа-я]", "", cmd, flags=re.IGNORECASE).strip()
+
+    if not raw.startswith("/") and _contains_crisis_signal(raw):
+        await _handle_crisis(update, context, raw)
+        raise ApplicationHandlerStop
+
+    if compact.startswith("/new"):
+        context.user_data.pop("draft_entry", None)
+        await new_thought_entry(update, context)
+        raise ApplicationHandlerStop
+
+    if compact.startswith("/start"):
+        context.user_data.pop("draft_entry", None)
+        await start(update, context)
+        raise ApplicationHandlerStop
+
+    if compact in {"отмена", "отмена!"} or " отмена" in f" {compact}" or compact.startswith("отмена"):
+        await cancel_flow(update, context)
+        raise ApplicationHandlerStop
+
+    if compact == "в меню" or compact.startswith("в меню") or "в меню" in compact:
+        await go_menu_and_end(update, context)
+        raise ApplicationHandlerStop
+
+
+async def crisis_guard_global(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await pre_router(update, context)
 
 
 async def _route_global_flow_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int | None:

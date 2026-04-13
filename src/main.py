@@ -70,6 +70,12 @@ from state import (
 
 def build_app(token: str) -> Application:
     app = Application.builder().token(token).build()
+    app.add_handler(CommandHandler("start", pre_router), group=-1)
+    app.add_handler(CommandHandler("new", pre_router), group=-1)
+    app.add_handler(MessageHandler(filters.Regex(r"(?i)^\s*отмена\s*$"), pre_router), group=-1)
+    app.add_handler(MessageHandler(filters.Regex(r"(?i)^\s*в\s*меню\s*$"), pre_router), group=-1)
+    app.add_handler(MessageHandler(filters.Regex(r"(?i)(не хочу жить|хочу умер|суиц|убить себя|лучше бы меня не было|не хочу просыпаться|хочу исчезнуть|нет смысла жить|всем будет лучше без меня)") & filters.TEXT & ~filters.COMMAND, pre_router), group=-1)
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("new", new_thought_entry))
     app.add_handler(CommandHandler("help", show_help))
