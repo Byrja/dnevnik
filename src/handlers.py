@@ -521,7 +521,7 @@ async def go_menu_and_end(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.message:
         context.user_data.pop("draft_entry", None)
-        await update.message.reply_text("Ок, остановила текущий разбор.")
+        await update.message.reply_text("Ок, остановила текущий разбор и вернула в меню.")
         await _send_main_menu(update.message)
     return ConversationHandler.END
 
@@ -1561,7 +1561,7 @@ async def new_thought_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     log_event("step_entered", tg_user_id=user_id, step=1, meta={"variant": variant})
     tone = _get_tone(user_id)
     prompt = _thought_prompt_for_user(user_id, tone)
-    await msg.reply_text(f"{prompt}\n\n{CANCEL_HINT_RU}", reply_markup=_flow_keyboard())
+    await msg.reply_text(f"Шаг 1 • Твоя мысль\n{prompt}\n\n{CANCEL_HINT_RU}", reply_markup=_flow_keyboard())
     return WAIT_THOUGHT
 
 
