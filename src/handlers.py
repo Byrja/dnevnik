@@ -332,8 +332,11 @@ async def _handle_crisis(update: Update, context: ContextTypes.DEFAULT_TYPE, sou
     context.user_data.clear()
     msg = update.message or (update.callback_query.message if update.callback_query else None)
     if msg:
-        await msg.reply_text(CRISIS_SUPPORT_RU)
-        await msg.reply_text("Я вернула тебя в безопасное меню. Когда будешь готов(а), можем начать заново.")
+        await msg.reply_text(
+            f"{CRISIS_SUPPORT_RU}\n\n"
+            "Я вернула тебя в безопасное меню.\n"
+            "Чтобы продолжить, нажми «В меню» или отправь /new."
+        )
         await _send_main_menu(msg)
     log_event("crisis_exit_to_menu", tg_user_id=update.effective_user.id if update.effective_user else None)
     return ConversationHandler.END
@@ -538,16 +541,20 @@ async def _route_global_flow_command(update: Update, context: ContextTypes.DEFAU
         return None
     cmd = _normalize_text(update.message.text or "")
 
-    if cmd in {"отмена", "в меню"}:
+    compact = re.sub(r"[^/\w\sа-я]", "", cmd, flags=re.IGNORECASE).strip()
+    if compact in {"отмена", "отмена!"} or " отмена" in f" {compact}" or compact.startswith("отмена"):
         await cancel_flow(update, context)
         return ConversationHandler.END
 
-    if cmd == "/start":
+    if compact == "в меню" or compact.startswith("в меню") or "в меню" in compact:
+        return await go_menu_and_end(update, context)
+
+    if compact.startswith("/start"):
         context.user_data.pop("draft_entry", None)
         await start(update, context)
         return ConversationHandler.END
 
-    if cmd == "/new":
+    if compact.startswith("/new"):
         context.user_data.pop("draft_entry", None)
         return await new_thought_entry(update, context)
 

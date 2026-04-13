@@ -44,7 +44,7 @@ class CallbackRoutesTests(unittest.TestCase):
 
     def test_global_menu_text_handler_registered(self) -> None:
         src = main_py()
-        self.assertIn('MessageHandler(filters.Regex(r"^В меню$"), go_menu)', src)
+        self.assertIn('MessageHandler(filters.Regex(r"(?i)^\\s*в меню\\s*$"), go_menu_and_end)', src)
 
     def test_distortion_callback_routes_exist(self) -> None:
         src = main_py()
