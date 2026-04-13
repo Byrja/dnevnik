@@ -31,6 +31,7 @@ from handlers import (
     export_progress,
     feedback_action,
     go_menu,
+    go_menu_and_end,
     main_menu_action,
     new_thought_entry,
     receive_alternative_thought,
@@ -131,7 +132,10 @@ def build_app(token: str) -> Application:
         },
         fallbacks=[
             CommandHandler("cancel", cancel_flow),
-            MessageHandler(filters.Regex(r"^(Отмена|В меню)$"), cancel_flow),
+            CommandHandler("start", start),
+            CommandHandler("new", new_thought_entry),
+            MessageHandler(filters.Regex(r"^Отмена$"), cancel_flow),
+            MessageHandler(filters.Regex(r"^В меню$"), go_menu_and_end),
         ],
         allow_reentry=True,
     )

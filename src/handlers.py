@@ -329,9 +329,13 @@ async def _handle_crisis(update: Update, context: ContextTypes.DEFAULT_TYPE, sou
         conn.commit()
         conn.close()
 
-    context.user_data.pop("draft_entry", None)
-    if update.message:
-        await update.message.reply_text(CRISIS_SUPPORT_RU)
+    context.user_data.clear()
+    msg = update.message or (update.callback_query.message if update.callback_query else None)
+    if msg:
+        await msg.reply_text(CRISIS_SUPPORT_RU)
+        await msg.reply_text("Я вернула тебя в безопасное меню. Когда будешь готов(а), можем начать заново.")
+        await _send_main_menu(msg)
+    log_event("crisis_exit_to_menu", tg_user_id=update.effective_user.id if update.effective_user else None)
     return ConversationHandler.END
 
 
@@ -503,6 +507,12 @@ async def go_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.callback_query.edit_message_text(_menu_intro_text_for_user(uid), reply_markup=_main_menu_inline(uid))
     else:
         await _send_main_menu(msg)
+
+
+async def go_menu_and_end(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data.pop("draft_entry", None)
+    await go_menu(update, context)
+    return ConversationHandler.END
 
 
 async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
