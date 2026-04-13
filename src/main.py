@@ -25,6 +25,7 @@ from handlers import (
     choose_intensity_after,
     choose_intensity_before,
     consent_accept,
+    crisis_guard_global,
     distortion_info_action,
     distortion_pick_action,
     emotion_hint_action,
@@ -134,12 +135,21 @@ def build_app(token: str) -> Application:
             CommandHandler("cancel", cancel_flow),
             CommandHandler("start", start),
             CommandHandler("new", new_thought_entry),
-            MessageHandler(filters.Regex(r"^Отмена$"), cancel_flow),
-            MessageHandler(filters.Regex(r"^В меню$"), go_menu_and_end),
+            MessageHandler(filters.Regex(r"(?i)^\s*отмена\s*$"), cancel_flow),
+            MessageHandler(filters.Regex(r"(?i)^\s*в меню\s*$"), go_menu_and_end),
         ],
         allow_reentry=True,
     )
     app.add_handler(thought_flow)
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r"(?i)(не хочу жить|хочу умер|суиц|убить себя|лучше бы меня не было|не хочу просыпаться|хочу исчезнуть|нет смысла жить|всем будет лучше без меня)")
+            & filters.TEXT
+            & ~filters.COMMAND,
+            crisis_guard_global,
+        )
+    )
 
     if app.job_queue:
         app.job_queue.run_repeating(send_daily_nudges, interval=3600, first=90, name="daily_nudges")

@@ -523,6 +523,16 @@ async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     return ConversationHandler.END
 
 
+async def crisis_guard_global(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message:
+        return
+    text = (update.message.text or "").strip()
+    if not text or text.startswith("/"):
+        return
+    if _contains_crisis_signal(text):
+        await _handle_crisis(update, context, text)
+
+
 async def _route_global_flow_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int | None:
     if not update.message:
         return None
