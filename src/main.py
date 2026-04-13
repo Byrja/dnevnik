@@ -35,6 +35,7 @@ from handlers import (
     go_menu_and_end,
     main_menu_action,
     new_thought_entry,
+    pre_router,
     receive_alternative_thought,
     receive_distortion,
     receive_emotion,
